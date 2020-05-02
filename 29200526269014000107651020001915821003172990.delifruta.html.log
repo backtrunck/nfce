@@ -1,0 +1,24 @@
+INFO;2020-05-02 09:45:16,116;nfce;__init__;Abrindo arquivo /home/lcreina/Documents/programacao/python3/nota_fiscal_arquivos/backup/29200526269014000107651020001915821003172990.delifruta.html
+INFO;2020-05-02 09:45:16,118;nfce;__init__;Arquivo aberto com sucesso
+INFO;2020-05-02 09:45:16,167;nfce;obter_dados_nfe_codigo_acesso;Obtendo dados sobre Nota Fiscal
+INFO;2020-05-02 09:45:16,175;nfce;obter_dados_nfe_codigo_acesso;cd_uf = 29 cnpj = 26269014000107 cd_modelo = 65 serie = 102 numero = 000191582 cd_forma_emissao = 1 nu_nfce = 00317299 dt_emissao = 2020-05-02 07:59:47 dt_saida = None vl_total = 13.28 
+INFO;2020-05-02 09:45:16,175;nfce;obter_dados_nfe_codigo_acesso;Dados sobre Nota Fiscal obtidos com sucesso
+INFO;2020-05-02 09:45:16,175;nfce;__init__;Nota Fiscal 00317299 Serie 102 Modelo 65 Uf 29 cnpj 26269014000107
+INFO;2020-05-02 09:45:16,207;nfce;obter_dados_emitente_2;Obtendo dados sobre Emitentes
+INFO;2020-05-02 09:45:16,212;nfce;obter_dados_emitente_2;razao_social = DELI FRUTA COMERCIAL DE ALIMENTOS EIRELI nm_fantasia =  cnpj = 26269014000107 endereco = R. ARTHUR DE AZEVEDO MACHADO,880Loja 01 bairro = COSTA AZUL cd_municipio = 2927408 telefone = 7130153099 sg_uf = BA cd_pais =  insc_estadual = 135657706 insc_estadual_substituto =  insc_municipal =  cd_municipio_ocorrencia = 2927408 cnae_fiscal =  ds_regime_tributario = 3 - Regime Normal 
+INFO;2020-05-02 09:45:16,212;nfce;obter_dados_emitente_2;Dados sobre Emitentes obtidos com sucesso
+INFO;2020-05-02 09:45:16,216;nfce;obter_dados_nfe_codigo_acesso;Obtendo dados sobre Nota Fiscal
+INFO;2020-05-02 09:45:16,222;nfce;obter_dados_nfe_codigo_acesso;cd_uf = 29 cnpj = 26269014000107 cd_modelo = 65 serie = 102 numero = 000191582 cd_forma_emissao = 1 nu_nfce = 00317299 dt_emissao = 2020-05-02 07:59:47 dt_saida = None vl_total = 13.28 
+INFO;2020-05-02 09:45:16,222;nfce;obter_dados_nfe_codigo_acesso;Dados sobre Nota Fiscal obtidos com sucesso
+INFO;2020-05-02 09:45:16,222;nfce;obter_dados_cobranca;Obtendo dados sobre Cobrança
+INFO;2020-05-02 09:45:16,226;nfce;obter_dados_cobranca;Dados de Cobrança-> ds_forma_pagamento =  vl_pagamento = 0,00 cnpj_credenciadora =  bandeira_operacao =  numero_autorizacao =  
+INFO;2020-05-02 09:45:16,226;nfce;obter_dados_cobranca;Dados de Cobrança obtidos com sucesso
+INFO;2020-05-02 09:45:16,226;nfce;obter_dados_valores_totais;Obtendo dados sobre valores totais da Nota
+INFO;2020-05-02 09:45:16,233;nfce;obter_dados_valores_totais;vl_base_calculo_icms = 0.0  vl_icms = 0.0  vl_icms_desonerado = 0.0  vl_base_calculo_icms_st = 0.0  vl_icms_substituicao = 0.0  vl_total_produtos = 13.28  vl_frete = 0.0  vl_seguro = 0.0  vl_outras_despesas_acesso = 0.0  vl_total_ipi = 0.0  vl_total_nfe = 13.28  vl_total_descontos = 0.0  vl_total_ii = 0.0  vl_pis = 0.0  vl_cofins = 0.0  vl_aproximado_tributos = 3.49  
+INFO;2020-05-02 09:45:16,233;nfce;obter_dados_valores_totais;Dados sobre valores totais da Nota obtidos com sucesso
+INFO;2020-05-02 09:45:16,234;nfce;obter_dados_transporte;Obtendo dados sobre transporte
+INFO;2020-05-02 09:45:16,237;nfce;obter_dados_transporte;ds_modalidade_frete = 9 - Sem Frete 
+INFO;2020-05-02 09:45:16,237;nfce;obter_dados_transporte;Dados sobre produtos e serviços obtidos com sucesso
+INFO;2020-05-02 09:45:16,238;nfce;obter_dados_produtos_e_servicos;Obtendo dados sobre produtos e serviços
+INFO;2020-05-02 09:45:16,252;nfce;obter_dados_produtos_e_servicos;nu_prod_serv = 1 ds_prod_serv = PAO KG qt_prod_serv = 0.835 un_comercial_prod_serv = KG vl_prod_serv = 13.28 cd_prod_serv = 436 cd_ncm_prod_serv = 19052090 cd_ex_tipi_prod_serv =  cfop_prod_serv = 5405 vl_out_desp_acess = 0.0 vl_desconto_prod_serv = 0.0 vl_frete_prod_serv = 0.0 vl_seguro_prod_serv = 0.0 ind_composicao_prod_serv = 1 - O valor do item (vProd) compõe o valor total da NF-e (vProd) cd_ean_prod_serv = SEM GTIN qt_comercial_prod_serv = 0.835 cd_ean_tributavel_prod_serv = SEM GTIN un_tributavel_prod_serv = KG qt_tributavel_prod_serv = 0.835 vl_unit_comerc_prod_serv = 15.9 vl_unit_tribut_prod_serv = 15.9 nu_pedido_compra_prod_serv =  item_pedido_prod_serv =  vl_aprox_tributos_prod_serv = None nu_fci_prod_serv =  cest_prod_serv = 1705000 ds_origem_mercadoria = 1705000 ds_tributacao_icms = 1705000 ds_modal_defini_bc_icms = 1705000 vl_base_calculo_icms_normal = 1705000 vl_aliquota_icms_normal = 1705000 vl_icms_normal = 1705000 vl_icms_st_retido = 1705000 ds_cst_cofins = 1705000 vl_base_calculo_cofins = 1705000 vl_aliquota_cofins = 1705000 vl_cofins = 1705000 ds_cst_pis = 1705000 vl_base_calculo_pis = 1705000 vl_aliquota_pis = 1705000 vl_pis = 1705000 
+INFO;2020-05-02 09:45:16,252;nfce;obter_dados_produtos_e_servicos;Dados sobre produtos e serviços obtidos com sucesso
