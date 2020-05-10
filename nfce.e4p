@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project nfce -->
-<!-- Saved: 2020-05-02, 13:57:58 -->
+<!-- Saved: 2020-05-10, 15:26:57 -->
 <!-- Copyright (C) 2020 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -24,10 +24,14 @@
     <Source>interfaces_graficas/quitter.py</Source>
     <Source>interfaces_graficas/simple_forms.py</Source>
     <Source>interfaces_graficas/vertical_scrolled_frame.py</Source>
+    <Source>invoice_scraper.py</Source>
+    <Source>main.py</Source>
     <Source>nfce.py</Source>
     <Source>nfce_db.py</Source>
     <Source>nfce_gui.py</Source>
     <Source>nfce_produtos.py</Source>
+    <Source>nfce_scrapper.py</Source>
+    <Source>product_scraper.py</Source>
     <Source>util/__init__.py</Source>
     <Source>util/terminal.py</Source>
     <Source>util/validadores.py</Source>
@@ -36,6 +40,7 @@
     <Other>.gitignore</Other>
     <Other>static</Other>
   </Others>
+  <MainScript>main.py</MainScript>
   <Vcs>
     <VcsType>Git</VcsType>
     <VcsOptions>

@@ -6,8 +6,10 @@
 *.orig
 *.bak
 *.rej
+*.log
 *~
 cur/
 tmp/
 __pycache__/
+data/
 *.DS_Store

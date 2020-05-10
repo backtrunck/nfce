@@ -1,39 +1,34 @@
+import nfce_db
 from sqlalchemy import *
 from sqlalchemy.sql import text
-from tkinter import * 
+#from tkinter import * 
+import tkinter as tk
 from tkinter.ttk import Combobox
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
-from interfaces_graficas import Quitter
-from nfce_db import get_engine_bd
 from PIL import Image
 from PIL.ImageTk import PhotoImage
 from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice
-
-def main():
     
-    root = Tk()
-    root.title('Controle de Compras')
-    root.geometry("900x700")
-    engine = get_engine_bd()
-    
-    root.conn = engine.connect()
-  
-    top = Menu(root)
-    root.config(menu=top)
-    
-    file=Menu(top)
-    file.add_command(label='Consultar Nota Fiscal',  command=(lambda master = root: search_invoice(master)), underline=0)
-    file.add_command(label='Sair', command=root.quit)
-    top.add_cascade(label='Arquivo', menu=file,  underline=0) 
-   
-    root.eval('tk::PlaceWindow %s center' % root.winfo_pathname(root.winfo_id()))
-    root = mainloop()
-    
-
+def make_widget(self, master, widget_type, index_name, field_name='', comparison_operator='=', **options):
+        
+        e = widget_type(master, **options)
+        e.index_name = index_name
+        e.comparison_operator=comparison_operator
+        
+        if field_name:
+            
+            e.field_name = field_name
+        else:
+            
+            e.field_name = index_name        
+        
+        return e
+        
+        
 def search_invoice(master):
     
-    win = Toplevel(master)
+    win = tk.Toplevel(master)
     win.conn = master.conn
     win.title('Consultar Nota Fiscal')
     
@@ -42,21 +37,21 @@ def search_invoice(master):
     f = FormSimpleSearch(win, fields_search_invoice, fields_f_invoice)
     f.pack()
     
-class LabeledEntry(Frame):
-    def __init__(self, master, text_label = "", posLabel = LEFT, padx = 0, pady = 0,  width = 20):
+class LabeledEntry(tk.Frame):
+    def __init__(self, master, text_label = "", posLabel = tk.LEFT, padx = 0, pady = 0,  width = 20):
         
         super().__init__(master)
         
         if text_label:
             
-            self.label = Label(self, text=text_label)            
+            self.label = tk.Label(self, text=text_label)            
 
             self.label.pack(side = posLabel, padx = padx, pady = pady)
-            self.entry = Entry(self , width = width)
+            self.entry = tk.Entry(self , width = width)
             self.entry.pack(side=posLabel,padx = padx, pady = pady)
 
     
-class FrameGrid(Frame):
+class FrameGrid(tk.Frame):
     '''
         Class que representa um grid para apresentar dados em formato tabular
     '''
@@ -81,9 +76,9 @@ class FrameGrid(Frame):
 
         #cria um frame com barras de rolagem que irá conter o grid
         scroll = ScrolledWindow(self, canv_w = largura + dif_largura, canv_h = altura + dif_altura)
-        scroll.pack(side=LEFT, fill=X, expand=YES, padx=10, pady=10)
+        scroll.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES, padx=10, pady=10)
         
-        self.frmGrid = Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+        self.frmGrid = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
         self.frmGrid.grid(row = 0,  column = 0)
 
         self.make_grid_header()
@@ -97,8 +92,8 @@ class FrameGrid(Frame):
 
             if field.visible:
                 
-                e = Entry(self.frmGrid, width=field.width, relief=FLAT, background='#d9d9d9')
-                e.grid(row=1, column=col, sticky=W)
+                e = tk.Entry(self.frmGrid, width=field.width, relief=tk.FLAT, background='#d9d9d9')
+                e.grid(row=1, column=col, sticky=tk.W)
                 e.insert(0, field.label)
 
 
@@ -129,15 +124,16 @@ class FrameGrid(Frame):
                 #se o campo é visivel, cria o widget
                 if field.visible:
                     #se for um Button...
-                    if widget_class == Button and callback:
+                    if widget_class == tk.Button and callback:
                         #pega a imagem a ser exibida no botão
                         image = Image.open('./static/check2.png')
                         image2 = image.resize((22, 18), Image.ANTIALIAS)
                         photo = PhotoImage(image2)
+                        
                         #pega o valor das chaves no data_row atual
                         for ch in keys:
                            keys[ch] = row[ch]
-
+                        
                         # como não foi possivel passar o dicionario pelo callback no button.command (ele sempre levava o ultimo valor do loop
                         # criei uma lista de tuplas, a qual retornei para um dicionario na função get_itens_invoice
                         invoc = [(i, j) for i, j in keys.items()]
@@ -146,6 +142,10 @@ class FrameGrid(Frame):
                         #cria um botão com imagem atrelado a uma função qeu irá detalhar o dado da linha
                         widget = widget_class(self.frmGrid, image=photo,
                                               command=(lambda k=(invoc), conn=self.conn: callback(k, conn)))
+                        
+#                        widget = widget_class(self.frmGrid, image=photo,
+#                                              command=(lambda :callback(self.conn, **field.chaves, )))
+                        
                         widget.image = photo
                         widget.grid(row=r, column=c, padx=0, pady=0)
 
@@ -169,7 +169,7 @@ class FrameGrid(Frame):
                 widget.grid_forget()
     
 
-class FormSimpleDialog(Frame):
+class FormSimpleDialog(tk.Frame):
     '''
         Um tkinter.Frame que conterá vaŕios campos (widgets) formando um formulários as informações sobre disposição e os tipos de widgets, largura
                     etc, estaram no parâmetro field_list passado no __init__ da classe. O atributo controls conterá todos os widgets indexados por nome
@@ -203,7 +203,7 @@ class FormSimpleDialog(Frame):
 
         for linha in linhas:
 
-            frm = Frame(self)            
+            frm = tk.Frame(self)            
             show_frame = 0       #controla se o frm(row), irá ser mostrado. Se algun widget dentro dele for visivel
 
             for field in self.fields_list.values():
@@ -212,24 +212,24 @@ class FormSimpleDialog(Frame):
 
                     if field.visible:   #se o campo for visivel, cria o widget correspondente no Frame
 
-                        if field.widget_type == Entry:   # se o tipo de widget for  Entry cria um LabeledEntry (um Entry com Label)
+                        if field.widget_type == tk.Entry:   # se o tipo de widget for  Entry cria um LabeledEntry (um Entry com Label)
 
                             w = field.width
 
                             lb = LabeledEntry(frm, text_label = field.label + ': ', width=w, padx=5, pady=5)
-                            lb.pack(side = LEFT)
+                            lb.pack(side = tk.LEFT)
 
                             self.controls[field.name_index] = lb
                             
                             show_frame = 1
 
-                        elif field.widget_type == Button:
+                        elif field.widget_type == tk.Button:
 
                             Button(frm, text = field.label).pack(side=RIGHT)
 
                             show_frame = 1
             if show_frame:
-                frm.pack(fill = X)    
+                frm.pack(fill = tk.X)    
         
     def fill_controls(self, result_set):
         '''
@@ -246,11 +246,12 @@ class FormSimpleDialog(Frame):
                 if result_set[field.name_field]:                                 #Se o valor não for nulo,                
                     self.controls[key].entry.insert(0, result_set[field.name_field]) #preenche o campo com o valor
 
+
 class FormSimpleSearch(FormSimpleDialog):     
     '''   
         Classe com um formulário de busca , um botão de busca e um grid de resultado
     '''   
-    def __init__(self, master, fields_search, fields_match):
+    def __init__(self, master, fields_search, fields_match, name_table='', order_by = ''):
         '''
             Parametros:
                 master(tk.widget): widget pai onde será colocado o FormSimpleSearch
@@ -266,12 +267,14 @@ class FormSimpleSearch(FormSimpleDialog):
         self.fields_search = fields_search          #campos para o search
         self.fields_match = fields_match            #campos para o resultado
         self.conn = master.conn                     #conexão com o banco de dados
+        self.order_by = order_by                    #o resultado da pesquisa será ordenado por
+        self.name_table = name_table                #nome da tabela que vai ser pesquisa
 
-        frm = Frame(self)                           #form para acomodar o botão de pesquisa
+        frm = tk.Frame(self)                           #form para acomodar o botão de pesquisa
 
-        bt_search = Button(frm, text = 'Search', command=self.search)
-        frm.pack(fill = X)
-        bt_search.pack(side = RIGHT)
+        bt_search = tk.Button(frm, text = 'Search', command=self.search)
+        frm.pack(fill = tk.X)
+        bt_search.pack(side = tk.RIGHT)
 
         self.grid = FrameGrid(self, 0, 200, fields_match)  #Grid de pesquisa
         self.grid.pack()
@@ -291,12 +294,12 @@ class FormSimpleSearch(FormSimpleDialog):
             where = self.make_sql_where(values)
             
             sql = 'select ' + select + ' from nota_fiscal_v where ' + where     #atenção a tabela do BD esta fixa, deve-se mudar a estratégia
-
+            sql += ' ORDER BY dt_emissao DESC'
             result_proxy = self.conn.execute(text(sql), **values)               #executa a consulta    
             
         else:
             
-            sql = 'select ' + select + ' from nota_fiscal_v '
+            sql = 'select ' + select + ' from nota_fiscal_v ORDER BY dt_emissao DESC'
             result_proxy = self.conn.execute(text(sql))               #executa a consulta
         
        
@@ -334,7 +337,7 @@ class FormSimpleSearch(FormSimpleDialog):
         for field in fields_list.values():
             
             #field.visible and
-            if  field.widget_type != Button:
+            if  field.widget_type != tk.Button:
                 
                 select.append(field.name_field)
                 
@@ -357,15 +360,12 @@ class FormSimpleSearch(FormSimpleDialog):
 
         return sql
 
+
 def get_itens_invoice(keys, conn):
     
     dict_keys = dict(keys)
     
-    sql = text('''select sg_uf, vl_total,cd_uf, nu_nfce, cnpj, razao_social, estabelecimento, endereco, bairro, nm_municipio,
-                    telefone, serie, cd_modelo, nu_prod_serv,
-                    ds_prod_serv, qt_prod_serv, vl_prod_serv, vl_desconto_prod_serv,
-                    vl_pago, vl_por_unidade, un_comercial_prod_serv, data_emissao, hora_emissao,
-                    dt_emissao, cd_ncm_prod_serv, cd_ean_prod_serv
+    sql = text('''select *
             from   nota_fiscal_produtos_v 
             where  cd_uf = :cd_uf and nu_nfce = :nu_nfce and cnpj = :cnpj and cd_modelo = :cd_modelo and serie = :serie ''')
     
@@ -376,20 +376,22 @@ def get_itens_invoice(keys, conn):
     
 def dlg_itens_invoice(result, conn):
     
-    win = Toplevel() 
+    win = tk.Toplevel() 
     win.conn = conn
+    win.title("Nota Fiscal")
     form = FormSimpleDialog(win,fields_form_invoice)    
-    #form = FormSimpleDialog(win,fields_items_invoice)    
     form.pack()
     form.fill_controls(result[0])
     grid = FrameGrid(win, 680, 200, fields_items_invoice)
     grid.fill_grid(result, fields_items_invoice, None)
     grid.pack()
     
-    Button(win, text = 'OK', command = win.destroy).pack(side = RIGHT)
+    tk.Button(win, text = 'OK', command = win.destroy).pack(side = tk.RIGHT)
     
-    
-
+    #torna a janela modal
+    win.focus_set()
+    win.grab_set()
+    win.wait_window()
     
 
 class ComboBoxDB(Combobox):
@@ -428,12 +430,46 @@ class ComboBoxDB(Combobox):
             return self.list_content[self.current()][0]
             
         return None    
+    
+    def set_key(self, key):
+        
+        try:
+            
+            index = self.list_content.index(key)
+            self.set(self.list_content[index])
+            
+        except ValueError:
+            
+            self.set('')
+            
+            
+        if key in [x[0] for x in self.list_content]:
+            i
         
         
 def configure(event):
     print(event.width, event.height)
     
+def main():
+    root = tk.Tk()
+    root.title('Consulta Produtos')
+    #root.geometry('830x380') 
     
+    engine = nfce_db.get_engine_bd()    
+    conn = engine.connect()
+    root.conn = conn
+    
+    fields_f_invoice = fields_form_invoice.set_visible({'data_emissao':True, 
+                                                        'hora_emissao':True,
+                                                        'nu_nfce':True,
+                                                        'cnpj':True, 
+                                                        'estabelecimento':True, 
+                                                        'vl_total':True, 
+                                                        'button_1':True})
+                                       
+    f = FormSimpleSearch(root, fields_search_invoice, fields_f_invoice)
+    f.pack()
+    root.mainloop()
 
 if __name__ == '__main__':
     main()

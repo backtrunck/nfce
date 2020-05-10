@@ -1,13 +1,12 @@
-from tkinter import Button, Entry, Frame, Label, Tk
-from tkinter import X, FLAT
-from nfce_db import get_engine_bd
-from nfce_gui import ComboBoxDB
+import tkinter as tk
+import nfce_db
+import nfce_gui
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from sqlalchemy import text
-from PIL import Image
-from PIL.ImageTk import PhotoImage
+import PIL
+import PIL.ImageTk as PilImageTk
 
-class FrameSearchProduct(Frame):
+class FrameSearchProduct(tk.Frame):
     
     def __init__(self, master, db_connection, **options):
         
@@ -49,37 +48,37 @@ class FrameSearchProduct(Frame):
             options['pady'] = 2
         
         row = 0         
-        Label(self, text='Ean:', anchor='e').grid(row=row, column=0)        
-        e = self.__make_widget(Entry, 'cd_ean_prod_serv','','LIKE',  width=15)
+        tk.Label(self, text='Ean:', anchor='e').grid(row=row, column=0)        
+        e = self.__make_widget(tk.Entry, 'cd_ean_prod_serv','','LIKE',  width=15)
         self.controls[e.index_name] = e
         e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
         
         #row += 1
-        Label(self, text='Desc. Prod.: ', anchor='e').grid(row=row, column=2)        
-        e = self.__make_widget(Entry, 'ds_prod_serv','','LIKE', width=35)
+        tk.Label(self, text='Desc. Prod.: ', anchor='e').grid(row=row, column=2)        
+        e = self.__make_widget(tk.Entry, 'ds_prod_serv','','LIKE', width=35)
         self.controls[e.index_name] = e
         e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
         
         row += 1
-        Label(self, text='Ncm 01:', anchor='e').grid(row=row, column=0)        
-        e = self.__make_widget(ComboBoxDB, 'cd_ncm_01' , '', '=', state='readonly')
+        tk.Label(self, text='Ncm 01:', anchor='e').grid(row=row, column=0)        
+        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_01' , '', '=', state='readonly')
         self.controls[e.index_name] = e
         e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
         
         #row += 1
-        Label(self, text='Ncm 02:', anchor='e').grid(row=row, column=2)        
-        e = self.__make_widget(ComboBoxDB, 'cd_ncm_02', '', '=', width=35, state='readonly')
+        tk.Label(self, text='Ncm 02:', anchor='e').grid(row=row, column=2)        
+        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_02', '', '=', width=35, state='readonly')
         self.controls[e.index_name] = e
         e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
         
         row += 1
-        Label(self, text='Ncm 05:', anchor='e').grid(row=row,  column=0)        
-        e = self.__make_widget(ComboBoxDB, 'cd_ncm_05' , '' ,'=', width=40, state='readonly')
+        tk.Label(self, text='Ncm 05:', anchor='e').grid(row=row,  column=0)        
+        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_05' , '' ,'=', width=40, state='readonly')
         self.controls[e.index_name] = e
         e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
         
         row += 1
-        self.search_button = Button(self, text = 'Procurar',  command=self.search)
+        self.search_button = tk.Button(self, text = 'Procurar',  command=self.search)
         self.search_button.grid(row=row, column=3, sticky='E', padx=options['padx'], pady=10)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -91,27 +90,28 @@ class FrameSearchProduct(Frame):
         scroll.grid(row=row, column=0, columnspan=4, sticky='WE')
         #scroll.pack(side=LEFT, fill=X, expand=YES, padx=10, pady=10)
         
-        self.scrolled_frame = Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+        self.scrolled_frame = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
         self.scrolled_frame.grid(row = 0, column = 0)
 
 
     def make_header(self):
         
-        e = Entry(self.scrolled_frame, width=15, relief=FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=W)
+        e = tk.Entry(self.scrolled_frame, width=15, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=0, sticky=tk.W)
         e.insert(0,'EAN')
         
-        e = Entry(self.scrolled_frame, width=25, relief=FLAT, background='#d9d9d9')
-        e.grid(row=1, column=1, sticky=W)
+        e = tk.Entry(self.scrolled_frame, width=25, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=1, sticky=tk.W)
         e.insert(0,'Desc. Produto')
         
-        e = Entry(self.scrolled_frame, width=9, relief=FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=W)
+        e = tk.Entry(self.scrolled_frame, width=9, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=0, sticky=tk.W)
         e.insert(0,'NCM')
         
-        e = Entry(self.scrolled_frame, width=45, relief=FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=W)
+        e = tk.Entry(self.scrolled_frame, width=45, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=0, sticky=tk.W)
         e.insert(0,'Desc. NCM')
+        
         
     def search(self):
         
@@ -165,13 +165,14 @@ class FrameSearchProduct(Frame):
         values = {}
         
         for key in self.controls:
+            
             value = None
-            #if isinstance(self.controls[key],  Entry):
-            if type(self.controls[key]) == Entry:
+            
+            if type(self.controls[key]) == tk.Entry:
                 
                 value = self.controls[key].get()
         
-            elif type(self.controls[key]) == ComboBoxDB:
+            elif type(self.controls[key]) == nfce_gui.ComboBoxDB:
                 
                 value = self.controls[key].get_key()
                 
@@ -220,30 +221,30 @@ class FrameSearchProduct(Frame):
         #para cada linha retornada em data_rows
         for r, row in enumerate(data_rows, 2):
             
-            e = Entry(frm,width=14)
+            e = tk.Entry(frm,width=14)
             e.grid(row = r,column=0)
             e.insert(0, row['cd_ean_prod_serv'])
             e.bind("<Key>", lambda a: "break")
                                                     
-            e = Entry(frm, width=30)
+            e = tk.Entry(frm, width=30)
             e.grid(row=r, column=1)
             e.insert(0, row['ds_prod_serv'])
             e.bind("<Key>", lambda a: "break")
                 
-            e = Entry(frm, width=9)
+            e = tk.Entry(frm, width=9)
             e.grid(row=r, column=2)
             e.insert(0, row['cd_ncm_prod_serv'])
             e.bind("<Key>", lambda a: "break")
                                    
-            e = Entry(frm, width=40)
+            e = tk.Entry(frm, width=40)
             e.grid(row=r, column=3)
             e.insert(0, row['ds_ncm_05'])
             e.bind("<Key>", lambda a: "break")
                                    
-            image = Image.open('./static/check2.png')
-            image2 = image.resize((22, 18), Image.ANTIALIAS)
-            photo = PhotoImage(image2)
-            bt = Button(frm, image=photo)
+            image = PIL.Image.open('./static/check2.png')
+            image2 = image.resize((22, 18), PIL.Image.ANTIALIAS)
+            photo = PilImageTk.PhotoImage(image2)
+            bt = tk.Button(frm, image=photo)
             bt.grid(row=r, column=4)   
             bt.image = photo            
             #command=(lambda k=i:callback(k))
@@ -257,18 +258,88 @@ class FrameSearchProduct(Frame):
                 
                 widget.grid_forget()
 
+
+class FrameProduct():
+    
+    def __init__(self, master, db_connection, **options):
+        
+        super().__init__(master, **options)
+        
+        self.controls = {}
+        self.db_connection = db_connection
+        self.make_controls()
+ 
+        self.controls['cd_ncm_01'].fill_list(nfce_db.get_ncm_01(self.db_connection))
+        self.controls['cd_ncm_02'].fill_list(nfce_db.get_ncm_02(self.db_connection))
+        self.controls['cd_ncm_05'].fill_list(nfce_db.get_ncm_05(self.db_connection))
+        self.fill_controsl(nfce_db.get_product())
+
+    def make_controls(self, **options):
+
+        if not options:
+            options['sticky'] = 'w'
+            options['padx'] = 2
+            options['pady'] = 2
+        
+        row = 0         
+        tk.Label(self, text='Ean:', anchor='e').grid(row=row, column=0)        
+        e = nfce_gui.make_widget(tk.Entry, 'cd_ean_prod_serv','','LIKE',  width=15)
+        self.controls[e.index_name] = e
+        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+        
+        #row += 1
+        tk.Label(self, text='Desc. Prod.: ', anchor='e').grid(row=row, column=2)        
+        e = nfce_gui.make_widget(tk.Entry, 'ds_prod_serv','','LIKE', width=35)
+        self.controls[e.index_name] = e
+        e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+        
+        row += 1
+        tk.Label(self, text='Ncm 01:', anchor='e').grid(row=row, column=0)        
+        e = nfce_gui.make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_01' , '', '=', state='readonly')
+        self.controls[e.index_name] = e
+        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady']) 
+    
+    def fill_controls(self, row_data):
+      
+        for key in self.controls:
+            
+            if row_data[key]:
+                
+                if type(self.controls[key]) == tk.Entry:
+                    
+                    self.controls[key].delete(0, tk.END)
+                    self.controls[key].insert(0, row_data[key])
+                    
+            
+                elif type(self.controls[key]) == nfce_gui.ComboBoxDB:
+                    
+                    self.controls[key].set_key(row_data[key])
+
+
+def search_product(master):
+    
+    
+    win = tk.Toplevel(master)
+    win.title('Consultar Produtos')
+    win.geometry('830x380')
+    
+    f = FrameSearchProduct(win,master.conn)
+    
+    f.pack(fill = tk.X)
+    
+
 def testeFormSimpleDialog():
     
-    root = Tk()
+    root = tk.Tk()
     root.title('Consulta Produtos')
     #root.bind('<Configure>', configure) 
     root.geometry('830x380')
     
-    engine = get_engine_bd()    
+    engine = nfce_db.get_engine_bd()    
     conn = engine.connect()
     
     f = FrameSearchProduct(root,conn)
-    f.pack(fill = X)
+    f.pack(fill = tk.X)
     root.mainloop()
 
 def main():    

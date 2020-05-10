@@ -252,11 +252,16 @@ class NfceParse():
         #procura uma tag <td> no html da nota fiscal(passada em parametro) que contenha class='table-titulo-aba-interna' e text='ICMS Normal e ST'
         td = dados_nota_fiscal.find('td', {'class': 'table-titulo-aba-interna'},  text = 'ICMS Normal e ST')
         if td:
+            
            #obtem a tag <table> que contém a <td> procurada, a estrutura do html esta assim <table> <tbory><tr><td> 
             if td.parent.parent.name == 'tbody':
+                
                 tabela = td.parent.parent.parent
+                
             else:
+                
                 tabela = td.parent.parent
+                
             #pega a proxima tabela irmã que contém os labels relativos ao ICMS normal
             tabela = tabela.next_sibling
             dados_icms_normal = obter_texto_labels(NfceParse._dados_icms_normal, tabela,  self.aj_texto, self.aj_data,  self.aj_valor)
@@ -577,10 +582,23 @@ class NfceParse():
         if div_emitente:            #se acho a div 'Emitente'
             str_log = ''
             #informações disponiveis do emitente na nota
-            campos = (  'razao_social', 'nm_fantasia',  'cnpj',  'endereco',  'bairro_distrito',  'cep',  \
-                                'cd_municipio',  'telefone',  'uf',  'cd_pais',  'insc_estadual',  \
-                                'insc_estadual_substituto',  'insc_municipal',  \
-                                'cd_municipio_ocorrencia',  'cnae_fiscal',  'ds_regime_tributario')
+            campos = (  'razao_social', 
+                        'nm_fantasia',  
+                        'cnpj',  
+                        'endereco',  
+                        'bairro_distrito',  
+                        'cep',
+                        'cd_municipio',
+                        'telefone',
+                        'uf',
+                        'cd_pais',
+                        'insc_estadual',
+                        'insc_estadual_substituto',
+                        'insc_municipal',
+                        'cd_municipio_ocorrencia',
+                        'cnae_fiscal',
+                        'ds_regime_tributario')
+                        
             #obtem as tags filhas de div 'Emitente' e transforma numa lista
             lst_emitente = list(div_emitente.children)            
             #cria um novo objeto BeautifuSoup a partir dos filhos da div 'Emitente', usei a função str, sem ela dá erro
@@ -623,12 +641,16 @@ class NfceParse():
     
 class NfceBd():
     def __init__(self,  nota_fiscal_e, 
+                        db_connection = None, 
                         user        =   'nota_fiscal_app', 
                         password    =   'wolverine', 
                         host        =   '127.0.0.1', 
                         database    =   'nota_fiscal'):
                             
-        self.conexao = mysql.connector.connect(user = user,  password = password,  host = host,  database = database)
+        if db_connection:
+            self.conexao = db_connection
+        else:
+            self.conexao = mysql.connector.connect(user = user,  password = password,  host = host,  database = database)
         
         self.nota_fiscal = nota_fiscal_e
     
@@ -782,7 +804,6 @@ class NfceBd():
                 
         cursor.close()  
     
-
     
     def inserir_emitente(self):
         cursor = self.conexao.cursor()

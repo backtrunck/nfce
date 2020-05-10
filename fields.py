@@ -9,6 +9,10 @@ class Field:
     OP_GREATER_EQUAL, \
     OP_LESS_EQUAL, \
     OP_EQUAL = ('LIKE', '>', '<', '>=', '<=', '=')
+    
+    ASC_ORDER,\
+    DESC_ORDER,\
+    NO_ORDER = range(3)
 
     WIDGET_TYPE,\
     LABEL, WIDTH,\
@@ -25,7 +29,9 @@ class Field:
                  visible,
                  key,
                  row,
-                 comparison_operator):
+                 comparison_operator,
+                 order_by = NO_ORDER,  
+                 callback=None):
 
         self._name_index = name_index
         self._name_field = name_field
@@ -36,6 +42,8 @@ class Field:
         self._key = key
         self._row = row
         self._comparison_operator = comparison_operator
+        self._order_by = order_by
+        self.callback = callback
 
     @property
     def name_index(self):
@@ -72,6 +80,10 @@ class Field:
     @property
     def comparison_operator(self):
         return self._comparison_operator
+    
+    @property
+    def order_by(self):
+        return self._order_by
 
 
 class Fields():
@@ -111,6 +123,12 @@ class Fields():
             if field.key:
                 keys.append(field.name_field)
         return keys
+        
+    def get_order(self):
+        pass
+#        order = []
+#        for field in self.__ord_dict__.values()
+#            if field.order_by
 
     def set_visible(self, visibles):
         '''
@@ -148,9 +166,9 @@ class Fields():
 fields_search_invoice = Fields(
     [Field('cnpj','cnpj', Entry, 'Cnpj', 15, True, True, 1, Field.OP_EQUAL),
      Field('estabelecimento','estabelecimento', Entry, 'Estabelecimento', 40, True, False, 1, Field.OP_LIKE), 
-     Field('dt_emissao_menor', 'dt_emissao', Entry, 'Data de', 10, True, False, 2, Field.OP_LESS_EQUAL),
+     Field('dt_emissao_menor', 'dt_emissao', Entry, 'Data de', 10, True, False, 2, Field.OP_GREATER_EQUAL),
      Field('dt_emissao_maior', 'dt_emissao', Entry, 'Data até', 10, True, False, 2, Field.OP_LESS_EQUAL),
-     Field('vl_total_menor','vl_total', Entry, 'Valor de', 7, True, False, 3, Field.OP_LESS_EQUAL),
+     Field('vl_total_menor','vl_total', Entry, 'Valor de', 7, True, False, 3, Field.OP_GREATER_EQUAL),
      Field('vl_total_maior','vl_total', Entry, 'Valor até', 7, True, False, 3, Field.OP_LESS_EQUAL),
      Field('hora_emissao','hora_emissao', Entry, 'Hora', 5, False, False, 1, Field.OP_EQUAL),
      Field('sg_uf','sg_uf', Entry, 'Uf', 2, False, False, 1, Field.OP_EQUAL), 
@@ -178,7 +196,8 @@ fields_form_invoice = Fields(
      Field('cd_uf','cd_uf', Entry, 'Cd. Uf', 5, False, True, 1, Field.OP_GREATER_EQUAL),
      Field('cd_modelo','cd_modelo', Entry, 'Modelo', 5, False, True, 1, Field.OP_LESS_EQUAL),
      Field('button_1','button_1', Button, ' ', 5, False, False, 1, None),
-     Field('serie','serie', Entry, 'Serie', 5, False, True, 1, Field.OP_LESS_EQUAL)])
+     Field('serie','serie', Entry, 'Serie', 5, False, True, 1, Field.OP_LESS_EQUAL), 
+     Field('chave_acesso_format','chave_acesso_format', Entry, 'Chave Acesso', 53, True, False, 4, Field.OP_LIKE)])
 
 fields_items_invoice = Fields(
     [Field('ds_prod_serv', 'ds_prod_serv', Entry, 'Produto',  28, True, False, 1, Field.OP_EQUAL),
