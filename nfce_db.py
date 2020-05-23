@@ -2,11 +2,10 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text, bindparam
 
+PRODUCT_NO_CLASSIFIED = 146
 
 def execute_sql(db_connection, sql, dict_values_fields, dict_types_fields={}):
-    
-    params=[]
-    
+    #params=[]
     stmt = text(sql)
     
     for key, value in dict_types_fields.items():
@@ -28,7 +27,7 @@ def get_engine_bd():
     return engine
     
 
-def get_ncm_01(self, db_connection):
+def get_ncm_01(db_connection):
     
     sql = '''   SELECT distinct cd_ncm, concat(cd_ncm,' - ', ds_ncm_alt)
                 FROM nota_fiscal.ncm_01 n01, produtos_servicos ps 
@@ -38,7 +37,7 @@ def get_ncm_01(self, db_connection):
     return db_connection.execute(sql).fetchall()
     
         
-def get_ncm_02(self, db_connection):
+def get_ncm_02(db_connection):
     
     sql = '''   SELECT DISTINCT cd_ncm, concat(cd_ncm,' - ', ds_ncm), ds_ncm 
                 FROM nota_fiscal.ncm_02 n02, produtos_servicos ps 
@@ -48,7 +47,7 @@ def get_ncm_02(self, db_connection):
     return db_connection.execute(sql).fetchall()
     
     
-def get_ncm_05(self, db_connection):
+def get_ncm_05(db_connection):
     sql = '''   SELECT DISTINCT cd_ncm, concat(cd_ncm,' - ', ds_ncm) 
                 FROM nota_fiscal.ncm_05 n05, produtos_servicos ps 
                 WHERE n05.cd_ncm = substring(ps.cd_ncm_prod_serv,1,8)
@@ -56,7 +55,7 @@ def get_ncm_05(self, db_connection):
           '''  
     return db_connection.execute(sql).fetchall()
 
-def get_product(self, db_connection,  product_code):
+def get_product(db_connection,  product_code):
     
     sql = "SELECT * FROM produtos_ean WHERE cd_ean_prod_serv = %s"
     

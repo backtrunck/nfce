@@ -197,7 +197,8 @@ fields_form_invoice = Fields(
      Field('cd_modelo','cd_modelo', Entry, 'Modelo', 5, False, True, 1, Field.OP_LESS_EQUAL),
      Field('button_1','button_1', Button, ' ', 5, False, False, 1, None),
      Field('serie','serie', Entry, 'Serie', 5, False, True, 1, Field.OP_LESS_EQUAL), 
-     Field('chave_acesso_format','chave_acesso_format', Entry, 'Chave Acesso', 53, True, False, 4, Field.OP_LIKE)])
+     Field('chave_acesso_format','chave_acesso_format', Entry, 'Chave Acesso', 53, True, False, 4, Field.OP_LIKE), 
+     Field('ds_informacoes_complementares','ds_informacoes_complementares', Entry, 'Inf. Complementares', 80, True, False, 5, Field.OP_LIKE)])
 
 fields_items_invoice = Fields(
     [Field('ds_prod_serv', 'ds_prod_serv', Entry, 'Produto',  28, True, False, 1, Field.OP_EQUAL),

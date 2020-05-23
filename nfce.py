@@ -251,17 +251,13 @@ class NfceParse():
         ''' Obtem Dados do Icms Normal'''
         #procura uma tag <td> no html da nota fiscal(passada em parametro) que contenha class='table-titulo-aba-interna' e text='ICMS Normal e ST'
         td = dados_nota_fiscal.find('td', {'class': 'table-titulo-aba-interna'},  text = 'ICMS Normal e ST')
-        if td:
-            
+        if td:            
            #obtem a tag <table> que contém a <td> procurada, a estrutura do html esta assim <table> <tbory><tr><td> 
             if td.parent.parent.name == 'tbody':
                 
-                tabela = td.parent.parent.parent
-                
-            else:
-                
-                tabela = td.parent.parent
-                
+                tabela = td.parent.parent.parent                
+            else:                
+                tabela = td.parent.parent                
             #pega a proxima tabela irmã que contém os labels relativos ao ICMS normal
             tabela = tabela.next_sibling
             dados_icms_normal = obter_texto_labels(NfceParse._dados_icms_normal, tabela,  self.aj_texto, self.aj_data,  self.aj_valor)
@@ -1113,8 +1109,9 @@ def main_2(nt_fiscal):
     
 if __name__ == '__main__':
     #arquivo = './nota_fiscal_arquivos/backup/29200513408943000108650010000444531023501903.yang.ping.html'
-    #nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
-    #main_2(nt_fiscal)
+    arquivo = 'page_source.html'
+    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
+    main_2(nt_fiscal)
     pass
     
 

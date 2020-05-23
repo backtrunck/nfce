@@ -10,7 +10,7 @@ from PIL import Image
 from PIL.ImageTk import PhotoImage
 from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice
     
-def make_widget(self, master, widget_type, index_name, field_name='', comparison_operator='=', **options):
+def make_widget(master, widget_type, index_name, field_name='', comparison_operator='=', **options):
         
         e = widget_type(master, **options)
         e.index_name = index_name
@@ -388,11 +388,16 @@ def dlg_itens_invoice(result, conn):
     
     tk.Button(win, text = 'OK', command = win.destroy).pack(side = tk.RIGHT)
     
-    #torna a janela modal
+    open_modal(win)
+   
+   
+def open_modal(win):
+    '''
+        abre a janela modal
+    '''
     win.focus_set()
     win.grab_set()
     win.wait_window()
-    
 
 class ComboBoxDB(Combobox):
     
@@ -413,8 +418,10 @@ class ComboBoxDB(Combobox):
         '''
         
         if erase:
-            self['values'] = list_content
-            self.list_content = [item[1] for item in list_content]
+#            self['values'] = list_content
+#            self.list_content = [item[1] for item in list_content]
+            self['values'] = [item[1] for item in list_content]
+            self.list_content = list_content
         else:
             if self.list_content:
                 self['values'].extend([item[1] for item in list_content])
@@ -431,20 +438,18 @@ class ComboBoxDB(Combobox):
             
         return None    
     
-    def set_key(self, key):
-        
-        try:
-            
-            index = self.list_content.index(key)
-            self.set(self.list_content[index])
-            
-        except ValueError:
-            
+    def set_key(self, key):        
+        try:            
+            #index = self.list_content.index(key)
+            index = [i[0] for i in self.list_content].index(key)
+            #self.set(self.list_content[index][0])            
+            self.current(index)
+        except ValueError:            
             self.set('')
             
             
-        if key in [x[0] for x in self.list_content]:
-            i
+#        if key in [x[0] for x in self.list_content]:
+#            i
         
         
 def configure(event):
