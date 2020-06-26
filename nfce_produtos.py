@@ -1,8 +1,17 @@
 import tkinter as tk
+from tkinter.messagebox import showwarning
 import nfce_db
 import nfce_gui
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
+from interfaces_graficas import show_modal_win
 from sqlalchemy import text
+from sqlalchemy.sql import select, and_
+from nfce_models import products_t,\
+                        products_gtin_products_v, \
+                        products_gtin_products_t, \
+                        products_sem_gtin_products_v,\
+                        products_sem_gtin_products_t
+                        
 import PIL
 import PIL.ImageTk as PilImageTk
 
@@ -261,6 +270,709 @@ class FrameSearchProduct(tk.Frame):
 
 
 class FrameProduct(tk.Frame):
+    def __init__(self, master, connection,  **args):
+        super().__init__(master, **args)
+        self.controls = []
+        self.conn = connection
+        self.last_clicked_row = -1
+        self.last_inserted_row = -1
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Código:', width=11,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        self.id_product = tk.Entry(f, width=10, state='readonly')
+        self.id_product.pack(side=tk.LEFT, pady=2)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Descrição:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.ds_product = tk.Entry(f, width=50)
+        self.ds_product.pack(side=tk.LEFT, pady=2)
+        self.ds_product.focus_set()
+        self.pack()
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Classificado:', width=11, anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.labeled = tk.Checkbutton(f, width=1, anchor='w')
+        self.labeled.var = tk.IntVar()
+        self.labeled.config(variable=self.labeled.var)
+        self.labeled.pack(side=tk.LEFT, pady=2)
+        self.pack()
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        scroll = ScrolledWindow(f, canv_w=450, canv_h = 200, scroll_h = False)
+        scroll.pack(pady=2)
+        self.scrolled_frame = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+        self.scrolled_frame.grid(row = 0, column = 0)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Button(f, text='Fechar', width = 10, command=self.close).pack(side=tk.RIGHT, padx=2, pady=5)
+        tk.Button(f, text='Salvar', width = 10, command=self.update_row).pack(side=tk.RIGHT, padx=2, pady=5)
+        tk.Button(f, text='Novo', width = 10, command=self.new_product).pack(side=tk.RIGHT, padx=2, pady=5)
+        #self.bind('<Button-1>', self.mouse_click)
+        
+        self.make_header()
+        sql = 'select id_produto,ds_produto,classificado FROM produtos order by ds_produto'
+        result_proxy = self.conn.execute(text(sql)) 
+        self.fill_grid(result_proxy.fetchall())   
+
+
+    def close(self):
+        self.master.destroy()
+    
+    
+    def row_click(self, event):
+        self.last_clicked_row = event.widget.grid_info()['row']
+        self.get_grid_line(int(event.widget.grid_info()['row']))
+
+
+    def new_product(self):
+        self.last_clicked_row = -1
+        self.id_product.config(state=tk.NORMAL)
+        self.id_product.delete(0, tk.END)
+        self.id_product.config(state='readonly')
+        self.ds_product.delete(0, tk.END)
+        self.ds_product.focus_set()
+
+
+    def update_product(self):
+        try:
+            insert = False
+            if not self.id_product.get():
+                insert = True
+            if not self.ds_product.get():
+                showwarning('Inserir Produto','Informe a descrição do produto')
+                return -1
+            if insert:
+                ins = products_t.insert().values(ds_produto=self.ds_product.get(),\
+                                                     classificado=self.labeled.var.get())
+                result = self.conn.execute(ins)
+                self.last_inserted_row +=1
+                self.fill_row(self.last_inserted_row, 
+                              {'id_produto':result.inserted_primary_key[0],
+                               'ds_produto':self.ds_product.get(), 
+                               'classificado':self.labeled.var.get()})
+                self.id_product.config(state=tk.NORMAL)
+                self.id_product.delete(0, tk.END)
+                self.id_product.insert(0, result.inserted_primary_key[0])
+                self.id_product.config(state='readonly')
+                return 0
+            else:
+                upd = products_t.update().where(\
+                            products_t.c.id_produto==self.id_product.get()).\
+                            values(ds_produto=self.ds_product.get(), \
+                                   classificado=self.labeled.var.get())
+                self.conn.execute(upd)
+                return 0
+        except Exception as e:
+            showwarning('Inserir Produto',e)
+            return -1
+
+
+    def update_row(self):
+        if self.update_product():
+            self.set_grid_line()
+        
+    def get_grid_line(self, row):
+        
+        for widget in self.scrolled_frame.grid_slaves():
+            
+            if int(widget.grid_info()['row']) == row:
+                if widget.name == 'id_produto':
+                    self.id_product.config(state=tk.NORMAL)
+                    self.id_product.delete(0, tk.END)
+                    self.id_product.insert(0, widget.get())
+                    self.id_product.config(state='readonly')
+                elif widget.name == 'ds_produto':
+                    self.ds_product.delete(0, tk.END)
+                    self.ds_product.insert(0, widget.get())
+                elif widget.name == 'classificado':
+                    if widget.var.get():
+                        self.labeled.select()
+                    else:
+                        self.labeled.deselect()
+
+
+    def set_grid_line(self):
+        if self.last_clicked_row == -1:
+            return 
+        for widget in self.scrolled_frame.grid_slaves():            
+            if int(widget.grid_info()['row']) == self.last_clicked_row:
+                if widget.name == 'ds_produto':
+                    widget.config(state=tk.NORMAL)
+                    widget.delete(0, tk.END)
+                    widget.insert(0, self.ds_product.get())
+                    widget.config(state='readonly')
+                elif widget.name == 'id_produto':
+                    widget.config(state=tk.NORMAL)
+                    widget.delete(0, tk.END)
+                    widget.insert(0, self.id_product.get())
+                    widget.config(state='readonly')                    
+                elif widget.name == 'classificado':
+                    if self.labeled.var.get():
+                        widget.select()
+                    else:
+                        widget.deselect()
+
+
+    def fill_grid(self, data_rows):
+        '''
+            Preenche um grid a partir de um data_rows passado
+        '''
+        #limpa o grid
+        self.clear_grid()
+        
+        self.data_rows = data_rows
+        #para cada linha retornada em data_rows
+        for row, data_row in enumerate(data_rows, 2):
+            self.fill_row(row, data_row)
+        self.last_inserted_row = row
+
+
+    def fill_row(self, row, data_row):
+        e = tk.Entry(self.scrolled_frame,width=10, readonlybackground='white')
+        e.grid(row=row,column=0)
+        e.insert(0, data_row['id_produto'])
+        e.name = 'id_produto'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        #Button-1
+        e.config(state='readonly')
+                                                
+        e = tk.Entry(self.scrolled_frame, width=50, readonlybackground='white')
+        e.grid(row=row, column=1)
+        e.insert(0, data_row['ds_produto'])
+        e.name = 'ds_produto'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        c = tk.Checkbutton(self.scrolled_frame)
+        c.name = 'classificado'
+        c.var = tk.IntVar()
+        c.config(variable=c.var)
+        if data_row['classificado']:
+            c.select()
+        else:
+            c.deselect()
+        c.grid(row=row, column=2)
+
+
+    def make_header(self):
+        
+        e = tk.Entry(self.scrolled_frame, width=10, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=0, sticky=tk.W)
+        e.insert(0,'Código')
+        
+        e = tk.Entry(self.scrolled_frame, width=25, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=1, sticky=tk.W)
+        e.insert(0,'Descrição')
+        
+        e = tk.Entry(self.scrolled_frame, width=5, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=2, sticky=tk.W)
+        e.insert(0,'Class.')
+        
+    def clear_grid(self): 
+        
+        for widget in self.scrolled_frame.grid_slaves():
+            
+            if int(widget.grid_info()['row']) > 1:
+                
+                widget.grid_forget()
+
+
+class FrameProductGtimProduct(tk.Frame):
+    def __init__(self, master, connection,  **args):
+        super().__init__(master, **args)
+        self.controls = []
+        self.conn = connection
+        self.last_clicked_row = -1
+        self.last_inserted_row = -1
+        
+        label_width = 11
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtim:', width=label_width,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        self.cd_gtin = tk.Entry(f, width=14, state='readonly')
+        self.cd_gtin.pack(side=tk.LEFT, pady=2)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Desc. Gtin:', width=label_width,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.ds_gtin = tk.Entry(f, width=50, state='readonly')
+        self.ds_gtin.pack(side=tk.LEFT, pady=2)
+        self.ds_gtin.focus_set()
+                
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Produto:', width=label_width, anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.product = nfce_gui.ComboBoxDB(f, width=40, state='readonly')
+        self.id_product = tk.Entry(f)
+        self.fill_products()
+        self.product.pack(side=tk.LEFT, pady=2)
+        self.product.focus_set()
+        self.pack()
+        #Grid - Scrolled Window
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        scroll = ScrolledWindow(f, canv_w=650, canv_h = 200, scroll_h = False)
+        scroll.pack(pady=2)
+        self.scrolled_frame = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+        self.scrolled_frame.grid(row = 0, column = 0)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Button(f, text='Fechar', width = 10, command=self.close).pack(side=tk.RIGHT, padx=2, pady=5)
+        tk.Button(f, text='Salvar', width = 10, command=self.update_row).pack(side=tk.RIGHT, padx=2, pady=5)
+                
+        self.make_header()
+        self.fill_grid()   
+
+    def fill_products(self):
+        s = select([products_t.c.id_produto,
+                    products_t.c.ds_produto]).\
+                    order_by(products_t.c.ds_produto)
+        result = self.conn.execute(s)
+        self.product.fill_list(result.fetchall())
+        
+    def close(self):
+        self.master.destroy()
+    
+    
+    def row_click(self, event):
+        self.last_clicked_row = event.widget.grid_info()['row']
+        self.get_grid_line(int(self.last_clicked_row))
+
+
+    def update_product(self):
+        try:
+            if not self.cd_gtin.get() or self.product.get_key() == -1:
+                showwarning('Produto Gtin x Produto','Dados não fornecidos')
+                return -1
+            if self.product.get_key() != -1:
+                upd = products_gtin_products_t.update().where(and_(\
+                            products_gtin_products_t.c.id_produto==int(self.id_product.get()), 
+                            products_gtin_products_t.c.cd_ean_produto==self.cd_gtin.get())).\
+                            values(id_produto=int(self.product.get_key()))
+                self.conn.execute(upd)
+                return 0 
+            return -1
+        except Exception as e:
+            showwarning('Produto Gtin x Produto',e)
+            return -1
+
+
+    def update_row(self):
+        if not self.update_product():
+            self.set_grid_line()
+            self.get_grid_line(int(self.last_clicked_row))
+        
+    def get_grid_line(self, row):
+        
+        for widget in self.scrolled_frame.grid_slaves():
+            
+            if int(widget.grid_info()['row']) == row:
+                if widget.name == 'id_produto':
+                    self.product.set_key(int(widget.get()))
+                    self.id_product.delete(0, tk.END) 
+                    self.id_product.insert(0, widget.get())
+                elif widget.name == 'ds_gtin':
+                    self.ds_gtin.config(state=tk.NORMAL)
+                    self.ds_gtin.delete(0, tk.END)
+                    self.ds_gtin.delete(0, tk.END)
+                    self.ds_gtin.insert(0, widget.get())
+                    self.ds_gtin.config(state='readonly')
+                elif widget.name == 'cd_gtin':
+                    self.cd_gtin.config(state=tk.NORMAL)
+                    self.cd_gtin.delete(0, tk.END)
+                    self.cd_gtin.delete(0, tk.END)
+                    self.cd_gtin.insert(0, widget.get())
+                    self.cd_gtin.config(state='readonly')    
+
+
+    def set_grid_line(self):
+        if self.last_clicked_row == -1:
+            return 
+        for widget in self.scrolled_frame.grid_slaves():            
+            if int(widget.grid_info()['row']) == self.last_clicked_row:
+                if widget.name == 'ds_product':
+                    widget.config(state=tk.NORMAL)
+                    widget.delete(0, tk.END)
+                    widget.insert(0, self.product.get())
+                    widget.config(state='readonly')
+                if widget.name == 'id_produto':
+                    widget.config(state=tk.NORMAL)
+                    widget.delete(0, tk.END)
+                    widget.insert(0, self.product.get_key())
+                    widget.config(state='readonly')
+
+
+    def fill_grid(self):
+        '''
+            Preenche um grid a partir de um data_rows passado
+        '''
+        #limpa o grid
+        self.clear_grid()
+        s = select([products_gtin_products_v]).order_by(products_gtin_products_v.c.ds_produto,
+                                                        products_gtin_products_v.c.ds_gtin)
+        result = self.conn.execute(s)
+        self.data_rows = result.fetchall()
+        #para cada linha retornada em data_rows
+        for row, data_row in enumerate(self.data_rows, 2):
+            self.fill_row(row, data_row)
+        self.last_inserted_row = row
+
+
+    def fill_row(self, row, data_row):
+        e = tk.Entry(self.scrolled_frame,width=14, readonlybackground='white')
+        e.grid(row = row,column=0)
+        e.insert(0, data_row['cd_gtin'])
+        e.name = 'cd_gtin'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+                                                
+        e = tk.Entry(self.scrolled_frame, width=50, readonlybackground='white')
+        e.grid(row=row, column=1)
+        e.insert(0, data_row['ds_gtin'])
+        e.name = 'ds_gtin'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        e = tk.Entry(self.scrolled_frame, width=7, readonlybackground='white')
+        e.grid(row=row, column=2)
+        e.insert(0, data_row['id_produto'])
+        e.name = 'id_produto'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        e = tk.Entry(self.scrolled_frame, width=20, readonlybackground='white')
+        e.grid(row=row, column=3)
+        e.insert(0, data_row['ds_produto'])
+        e.name = 'ds_product'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        c = tk.Checkbutton(self.scrolled_frame)
+        c.name = 'classificado'
+        c.var = tk.IntVar()
+        c.config(variable=c.var)
+        c.config(state='disabled')
+        if data_row['classificado']:
+            c.select()
+        else:
+            c.deselect()
+        c.grid(row=row, column=4)
+
+
+    def make_header(self):
+        
+        e = tk.Entry(self.scrolled_frame, width=14, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=0, sticky=tk.W)
+        e.insert(0,'Gtin')
+        
+        e = tk.Entry(self.scrolled_frame, width=50, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=1, sticky=tk.W)
+        e.insert(0,'Desc. Gtin')
+        
+        e = tk.Entry(self.scrolled_frame, width=7, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=2, sticky=tk.W)
+        e.insert(0,'id')
+        
+        e = tk.Entry(self.scrolled_frame, width=20, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=3, sticky=tk.W)
+        e.insert(0,'Produto')
+        
+        e = tk.Entry(self.scrolled_frame, width=6, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=4, sticky=tk.W)
+        e.insert(0,'Class.')
+
+    def clear_grid(self): 
+        
+        for widget in self.scrolled_frame.grid_slaves():
+            
+            if int(widget.grid_info()['row']) > 1:
+                
+                widget.grid_forget()
+
+
+class FrameProductSemGtimProduct(tk.Frame):
+    def __init__(self, master, connection,  **args):
+        super().__init__(master, **args)
+        self.controls = []
+        self.conn = connection
+        self.last_clicked_row = -1
+        self.last_inserted_row = -1
+        
+        label_width = 11
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Cnpj:', width=label_width,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.cnpj = tk.Entry(f, width=14, state='readonly')
+        self.cnpj.pack(side=tk.LEFT, pady=2)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X) 
+        tk.Label(f, text='Estabelec.:', width=label_width,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.ds_supplier = tk.Entry(f, width=50, state='readonly')
+        self.ds_supplier.pack(side=tk.LEFT, pady=2)
+        self.ds_supplier.focus_set()
+            
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Item Compra:', width=label_width,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.cd_product = tk.Entry(f, width=15, state='readonly')
+        self.cd_product.pack(side=tk.LEFT, pady=2)
+        self.ds_product = tk.Entry(f, width=50, state='readonly')
+        self.ds_product.pack(side=tk.LEFT, pady=2)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Produto:', width=label_width, anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.product = nfce_gui.ComboBoxDB(f, width=40, state='readonly')
+        self.fill_products()
+        self.id_product = tk.Entry(f) #sem pack(invisivel), usado para guardar a chave pro update
+        self.product.pack(side=tk.LEFT, pady=2)
+        self.product.focus_set()
+        
+        self.pack()
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        scroll = ScrolledWindow(f, canv_w=650, canv_h = 200, scroll_h = False)
+        scroll.pack(pady=2)
+        self.scrolled_frame = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+        self.scrolled_frame.grid(row = 0, column = 0)
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        tk.Button(f, text='Fechar', width = 10, command=self.close).pack(side=tk.RIGHT, padx=2, pady=5)
+        tk.Button(f, text='Salvar', width = 10, command=self.update_row).pack(side=tk.RIGHT, padx=2, pady=5)
+                
+        self.make_header()
+        self.fill_grid()   
+
+    def fill_products(self):
+        s = select([products_t.c.id_produto,
+                    products_t.c.ds_produto]).\
+                    order_by(products_t.c.ds_produto)
+        result = self.conn.execute(s)
+        self.product.fill_list(result.fetchall())
+        
+    def close(self):
+        self.master.destroy()
+    
+    
+    def row_click(self, event):
+        self.last_clicked_row = event.widget.grid_info()['row']
+        self.get_grid_line(int(self.last_clicked_row))
+
+
+    def update_product(self):
+        try:
+            if not self.cnpj.get() or\
+               not self.cd_product or\
+               self.product.get_key() == -1:
+                   
+                showwarning('Inserir Produto Sem Gtin x Produto','Dados não fornecidos')
+                return -1
+            if self.product.get_key() != -1:
+                upd = products_sem_gtin_products_t.update().where(and_(\
+                            products_sem_gtin_products_t.c.id_produto==int(self.id_product.get()), 
+                            products_sem_gtin_products_t.c.cnpj==self.cnpj.get(), 
+                            products_sem_gtin_products_t.c.cd_prod_serv==self.cd_product.get())).\
+                            values(id_produto=int(self.product.get_key()))
+                self.conn.execute(upd)
+                return 0 
+            return -1
+        except Exception as e:
+            showwarning('Inserir Produto Sem Gtin x Produto',e)
+            return -1
+
+
+    def update_row(self):
+        if not self.update_product():
+            self.set_grid_line()
+            self.get_grid_line(int(self.last_clicked_row))
+        
+    def get_grid_line(self, row):
+        
+        for widget in self.scrolled_frame.grid_slaves():
+            
+            if int(widget.grid_info()['row']) == row:
+                if widget.name == 'id_product':                   
+                    self.product.set_key(int(widget.get()))
+                    self.id_product.delete(0, tk.END)
+                    self.id_product.insert(0, widget.get())
+
+                elif widget.name == 'cnpj':
+                    self.cnpj.config(state=tk.NORMAL)
+                    self.cnpj.delete(0, tk.END)
+                    self.cnpj.delete(0, tk.END)
+                    self.cnpj.insert(0, widget.get())
+                    self.cnpj.config(state='readonly')    
+                elif widget.name == 'ds_supplier':
+                    self.ds_supplier.config(state=tk.NORMAL)
+                    self.ds_supplier.delete(0, tk.END)
+                    self.ds_supplier.delete(0, tk.END)
+                    self.ds_supplier.insert(0, widget.get())
+                    self.ds_supplier.config(state='readonly')
+                elif widget.name == 'ds_product':
+                    self.ds_product.config(state=tk.NORMAL)
+                    self.ds_product.delete(0, tk.END)
+                    self.ds_product.delete(0, tk.END)
+                    self.ds_product.insert(0, widget.get())
+                    self.ds_product.config(state='readonly') 
+                elif widget.name == 'cd_product':
+                    self.cd_product.config(state=tk.NORMAL)
+                    self.cd_product.delete(0, tk.END)
+                    self.cd_product.delete(0, tk.END)
+                    self.cd_product.insert(0, widget.get())
+                    self.cd_product.config(state='readonly')   
+                    
+
+    def set_grid_line(self):
+        if self.last_clicked_row == -1:
+            return 
+        for widget in self.scrolled_frame.grid_slaves():            
+            if int(widget.grid_info()['row']) == self.last_clicked_row:
+                if widget.name == 'product':
+                    widget.config(state=tk.NORMAL)
+                    widget.delete(0, tk.END)
+                    widget.insert(0, self.product.get())
+                    widget.config(state='readonly')
+                if widget.name == 'id_product':
+                    widget.config(state=tk.NORMAL)
+                    widget.delete(0, tk.END)
+                    widget.insert(0, self.product.get_key())
+                    widget.config(state='readonly')
+
+
+    def fill_grid(self):
+        '''
+            Preenche um grid a partir de um data_rows passado
+        '''
+        #limpa o grid
+        self.clear_grid()
+        s = select([products_sem_gtin_products_v]).order_by(products_sem_gtin_products_v.c.ds_produto)
+        result = self.conn.execute(s)
+        self.data_rows = result.fetchall()
+        #para cada linha retornada em data_rows
+        for row, data_row in enumerate(self.data_rows, 2):
+            self.fill_row(row, data_row)
+        self.last_inserted_row = row
+
+
+    def fill_row(self, row, data_row):
+        
+        e = tk.Entry(self.scrolled_frame,width=14, readonlybackground='white')
+        e.grid(row = row,column=0)
+        e.insert(0, data_row['cnpj'])
+        e.name = 'cnpj'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        e = tk.Entry(self.scrolled_frame,width=36, readonlybackground='white')
+        e.grid(row = row,column=1)
+        e.insert(0, data_row['razao_social'])
+        e.name = 'ds_supplier'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+                                                
+        e = tk.Entry(self.scrolled_frame, width=15, readonlybackground='white')
+        e.grid(row=row, column=2)
+        e.insert(0, data_row['cd_prod_serv'])
+        e.name = 'cd_product'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        e = tk.Entry(self.scrolled_frame, width=25, readonlybackground='white')
+        e.grid(row=row, column=3)
+        e.insert(0, data_row['ds_prod_serv'])
+        e.name = 'ds_product'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        e = tk.Entry(self.scrolled_frame, width=7, readonlybackground='white')
+        e.grid(row=row, column=4)
+        e.insert(0, data_row['id_produto'])
+        e.name = 'id_product'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        e = tk.Entry(self.scrolled_frame, width=20, readonlybackground='white')
+        e.grid(row=row, column=5)
+        e.insert(0, data_row['ds_produto'])
+        e.name = 'product'
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+        
+        c = tk.Checkbutton(self.scrolled_frame)
+        c.name = 'classificado'
+        c.var = tk.IntVar()
+        c.config(variable=c.var)
+        if data_row['classificado']:
+            c.select()
+        else:
+            c.deselect()
+        c.grid(row=row, column=6)
+
+
+    def make_header(self):
+        
+        e = tk.Entry(self.scrolled_frame, width=14, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=0, sticky=tk.W)
+        e.insert(0,'Cnpj')
+        
+        e = tk.Entry(self.scrolled_frame, width=36, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=1, sticky=tk.W)
+        e.insert(0,'Estabelecimento')
+        
+        e = tk.Entry(self.scrolled_frame, width=15, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=2, sticky=tk.W)
+        e.insert(0,'Cod. Item')
+        
+        e = tk.Entry(self.scrolled_frame, width=25, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=3, sticky=tk.W)
+        e.insert(0,'Item Compra')
+        
+        e = tk.Entry(self.scrolled_frame, width=7, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=4, sticky=tk.W)
+        e.insert(0,'Id')
+        
+        e = tk.Entry(self.scrolled_frame, width=7, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=5, sticky=tk.W)
+        e.insert(0,'Produto')
+        
+        e = tk.Entry(self.scrolled_frame, width=6, relief=tk.FLAT, background='#d9d9d9')
+        e.grid(row=1, column=6, sticky=tk.W)
+        e.insert(0,'Class.')
+
+    def clear_grid(self): 
+        
+        for widget in self.scrolled_frame.grid_slaves():
+            
+            if int(widget.grid_info()['row']) > 1:
+                
+                widget.grid_forget()
+
+
+
+class FrameProductEan(tk.Frame):
     
     def __init__(self, master, db_connection, product_code,  **options):
         
@@ -338,25 +1050,21 @@ class FrameProduct(tk.Frame):
     def fill_controls(self):
         sql = 'select * from produtos_v where cd_ean = %s'
         row_data = self.db_connection.execute(sql, self.product_code).fetchone()
-        for key in self.controls:
-            
-            if row_data[key]:
-                
-                if type(self.controls[key]) == tk.Entry:
-                    
+        for key in self.controls:            
+            if row_data[key]:                
+                if type(self.controls[key]) == tk.Entry:                    
                     self.controls[key].delete(0, tk.END)
                     self.controls[key].insert(0, row_data[key])
                 elif type(self.controls[key]) == nfce_gui.ComboBoxDB:
                     self.controls[key].set_key(row_data[key])
                 elif type(self.controls[key]) == tk.Label:
                     self.controls[key].config(text=row_data[key])
-                
 
 
 def open_product(master, conn, product_code):
     tl = tk.Toplevel(master)
     tl.title('Produto')
-    f = FrameProduct(tl, conn, product_code)
+    f = FrameProductEan(tl, conn, product_code)
     #f.fill_controls(conn, product_code)
     f.fill_controls()
     f.pack()
@@ -373,16 +1081,15 @@ def search_product(master):
 
     
     f.pack(fill = tk.X)
-    
-    
-    
+    show_modal_win(win)
+
 
 def testeFormSimpleDialog():
     
     root = tk.Tk()
-    root.title('Consulta Produtos')
+    root.title('Produtos')
     #root.bind('<Configure>', configure) 
-    root.geometry('830x380')
+    #root.geometry('830x380')
     
     engine = nfce_db.get_engine_bd()    
     conn = engine.connect()
@@ -391,10 +1098,41 @@ def testeFormSimpleDialog():
     f.pack(fill = tk.X)
     root.mainloop()
 
+def make_window(master=None, Frame=None, title=None):
+    if master:
+        root = tk.Toplevel(master)
+        root.conn = master.conn
+    else:
+        root = tk.Tk()
+        engine = nfce_db.get_engine_bd()    
+        root.conn = engine.connect()
+    if title:
+        root.title(title)
+    if Frame:
+        f = Frame(root, root.conn)
+        f.pack(fill = tk.X)
+        if master:
+            show_modal_win(root)
+        else:
+            root.mainloop()
+    return
+
+def make_product_window(master=None):
+    make_window(master=master, Frame=FrameProduct, title='Produtos')
+
+def make_product_gtin_product_window(master=None, conn=None):
+    make_window(master=master, Frame=FrameProductGtimProduct, title='Produtos x Produtos Gtin')
+
+def make_product_sem_gtin_product_window(master=None, conn=None):
+    make_window(master=master, Frame=FrameProductSemGtimProduct, title='Produtos x Produtos Sem Gtin')
+    
 def main():    
-    testeFormSimpleDialog()
+    make_product_gtin_product_window()
     return
 
 if __name__ == '__main__':
-    main()
+    #make_product_window()
+    make_product_gtin_product_window()
+    #make_product_sem_gtin_product_window()
+    
 

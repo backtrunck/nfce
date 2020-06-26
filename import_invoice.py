@@ -5,13 +5,18 @@ import datetime, os, csv
 from tkinter import *
 from tkinter.filedialog import askopenfilename,  askdirectory
 from tkinter import messagebox
-from nfce import NfceBd,  NfceParse, NfceArquivoInvalido
+from interfaces_graficas import show_modal_win
+from nfce import    NfceBd,\
+                    NfceParse,\
+                    NfceArquivoInvalido,\
+                    make_logs_path
 
 
 def send_invoice_to_csv_file(invoice, csv_file = '', print_header = True):
         
     #obtem dados da nota fiscal    
-    dados_emitente = invoice.obter_dados_emitente_2()
+    #dados_emitente = invoice.obter_dados_emitente_2()
+    dados_emitente = invoice.obter_dados_emitente()
     chave_acesso = invoice.obter_chave_acesso() 
     dados_nfce = invoice.obter_dados_nfe_codigo_acesso(chave_acesso)
     produtos_servicos = invoice.obter_dados_produtos_e_servicos()
@@ -55,20 +60,12 @@ def send_invoice_to_csv_file(invoice, csv_file = '', print_header = True):
        
 def send_invoice_to_database(nt_fiscal, conn=None):
     
-    if conn:
-        ntB = NfceBd(nt_fiscal, conn)
-    else:    
-        ntB = NfceBd(nt_fiscal)
+    ntB = NfceBd(nt_fiscal.log)
     try:
-        ntB.inserir_emitente()
-        ntB.inserir_nfce()  
-        ntB.inserir_formas_pagamento()
-        ntB.inserir_totais()
-        ntB.inserir_transporte()
-        ntB.inserir_produtos_servicos()
-        ntB.conexao.commit()
+        ntB.insert_full_invoice_in_db(nt_fiscal)
+        ntB.session.commit()
     except Exception as e:
-        ntB.conexao.rollback()
+        ntB.session.rollback()
         raise e
 
 def make_window(master = None, db_connection = None):
@@ -97,17 +94,27 @@ def make_window(master = None, db_connection = None):
                                                                                                             fill = X)
     Button(frm, text='Importar Lote de Notas Fiscais', command = (lambda output = option:send_invoices(output))).pack(fill = X)
     Button(frm, text='Sair', command = root.quit).pack(fill = X)
-    root.mainloop()
+    if master:
+        show_modal_win(root)
+    else:
+        root.mainloop()
     
-def send_invoice(output = '',  invoice_file = '',  log_file_name = '',  csv_file = None, print_header = True, conn=None):    
+def send_invoice(output = '', \
+                 invoice_file = '',\
+                 log_file_name = '',\
+                 csv_file = None,\
+                 print_header = True,\
+                 conn=None):    
     ''' Envia os dados da nota fiscal ou para o Banco de Dados ou para um Arquivo csv
         Parâmetros (output:string): Informa se a saída vai para o banco de dados ou para o arquivo csv
                     (invoice_file:string): Arquivo que contém os dados da nota fiscal, caso não seja passado 
                                             vai abrir um caixa de diálogo para escolher o arquivo de nota fiscal
-                    (log_file_name:string): Arquivo onde serão guardadas as informções de log (quando rodando em lote),  caso não seja
-                                            passado gerar-se um arquivo com nome de base identico ao da nota fiscal 
+                    (log_file_name:string): Arquivo onde serão guardadas as informções de log (quando rodando em lote),
+                                            caso não seja
+                                            passado, gera-se um arquivo com nome de base identico ao da nota fiscal 
                                             com extensão log
-                    (csv_file:arquivo): Arquivo que irá receber os dados da nota fiscal (quando rodando em lote), caso não seja passado gera-se
+                    (csv_file:arquivo): Arquivo que irá receber os dados da nota fiscal (quando rodando em lote),
+                                        caso não seja passado gera-se
                                         um arquivo com nome de base idêntico ao da nota fiscal  com extensão csv
                     (print_header:boolean): Indica se vai se escrever um cabeçalho no arquivo csv
                     (conn:object): Uma conexão com um banco de dados'''
@@ -136,7 +143,8 @@ def send_invoice(output = '',  invoice_file = '',  log_file_name = '',  csv_file
                         send_invoice_to_csv_file(nt_fiscal, csv_file)
                         csv_file.close()
                     except Exception as e:
-                        print('Erro ao Abrir Arquivo: {}\n Detalhes {}', csv_file_name, e)
+                        #print('Erro ao Abrir Arquivo: {}\n Detalhes {}', csv_file_name, e)
+                        messagebox.showerror('Importar Nota Fiscal Eletronica - Erro', 'Erro ao Abrir Arquivo: {}\n Detalhes {}', csv_file_name, e)
                         raise e
                 else:                            #se vir pro else, está processando um lote de notas, objeto csv_file passado por parâmetro    
                     send_invoice_to_csv_file(nt_fiscal, csv_file, print_header)
@@ -145,10 +153,10 @@ def send_invoice(output = '',  invoice_file = '',  log_file_name = '',  csv_file
                 send_invoice_to_database(nt_fiscal, conn)
             
         except NfceArquivoInvalido:
-            messagebox.showerror('Erro',  'Arquivo Inválido, verifique se o arquivo trata-se de uma nota fiscal eletrônica')
+            messagebox.showerror('Importar Nota Fiscal Eletronica - Erro',  'Arquivo Inválido, verifique se o arquivo trata-se de uma nota fiscal eletrônica')
             
         except Exception as e:
-            messagebox.showerror('Error','{}'.format(e))
+            messagebox.showerror('Importar Nota Fiscal Eletronica - Error','{}'.format(e))
         
 def show_invoice(nfce):      
     win = Toplevel()
@@ -191,34 +199,33 @@ def show_invoice(nfce):
     return   
     
     
-def send_invoices(output):
-    
-    directory = askdirectory(title='Selecione a pasta que contém os arquivos de Nota Fiscal')
-    
-    if directory:
-        
+def send_invoices(output):    
+    directory = askdirectory(title='Selecione a pasta que contém os arquivos de Nota Fiscal')    
+    if directory:        
         files = util.obter_arquivos(directory, ('html', ))
-        log_file_name = 'nfce.{}'.format(datetime.datetime.now().strftime('%Y.%m.%d.%H.%M.%S'))
-        csv_file_name = log_file_name + '.csv'
-        log_file_name = log_file_name + '.log'
-        try:
-            csv_file = open( os.path.join(directory,csv_file_name), 'w', encoding='utf-8')
-        except Exception as e:
-            print('Erro ao Abrir Arquivo: {}\n Detalhes {}', csv_file_name, e)
-            raise e
-            
-        print_header = True
-        
+        csv_file_name = log_file_name = 'nfce.{}'.format(datetime.datetime.now().strftime('%Y.%m.%d.%H.%M.%S'))
+        log_file_name = make_logs_path() + '/' + log_file_name + '.log'
+        if output.get() == 'Arquivo *.csv':  #se a saída for para csv, criar o arquivo csv
+            csv_file_name = csv_file_name + '.csv'
+            try:
+                csv_file = open(os.path.join(directory,csv_file_name), 'w', encoding='utf-8')
+            except Exception as e:
+                print('Erro ao Abrir Arquivo: {}\n Detalhes {}'.format(csv_file_name, e))
+                raise e
+        else:
+            csv_file = None            
+        print_header = True        
         if files:
             for file in files:
                 send_invoice(   output = output, 
                                 invoice_file = file, 
-                                log_file_name = os.path.join(directory,log_file_name), 
+                                log_file_name = log_file_name, 
                                 csv_file = csv_file, 
                                 print_header = print_header)   
-                print_header = False            #já imprimiu o header, não imprimi mais
-                
-        csv_file.close()
+                print_header = False            #já imprimiu o header, não imprimi mais        
+        messagebox.showinfo(title='Importar Nota Fiscal Eletronica', message='Operação Finalizada!')
+        if csv_file:
+            csv_file.close()
         
 def make_widget(janela, dicionario_campos, width=20):
     
@@ -244,7 +251,11 @@ def preencher_caixa_texto(caixas_texto, dictValores):
         for id, cx_texto in caixas_texto:
             cx_texto.delete(0, END)
             cx_texto.insert(0, '')
-            
+
+def main():           
+    make_window()
+    
+    
 if __name__ == '__main__':
     
-    make_window()
+    main()

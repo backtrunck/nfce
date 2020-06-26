@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter.ttk import Combobox
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
+from interfaces_graficas import show_modal_win
 from PIL import Image
 from PIL.ImageTk import PhotoImage
 from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice
@@ -36,6 +37,7 @@ def search_invoice(master):
                                        'cnpj':True, 'estabelecimento':True, 'vl_total':True, 'button_1':True})
     f = FormSimpleSearch(win, fields_search_invoice, fields_f_invoice)
     f.pack()
+    show_modal_win(win)
     
 class LabeledEntry(tk.Frame):
     def __init__(self, master, text_label = "", posLabel = tk.LEFT, padx = 0, pady = 0,  width = 20):
@@ -405,21 +407,21 @@ class ComboBoxDB(Combobox):
         super().__init__(master, **options)
         self.list_content = []
         self.bind('<Key>', self.__key)
+
     
     def __key(self, event):    
-        print("pressed", repr(event.char))
-        if event.char == '\x7f':
+        #print("pressed", repr(event.char))
+        if event.char == '\x7f': #se pressionou 'del'
             self.set('')
-        
+
+
     def fill_list(self, list_content, erase=False):
         '''
-            Preenche o list box, list_content deve ser um lista na qual a descrição é a coluna 0,
-            e a chave a coluna 1
+            Preenche o list box, list_content deve ser um lista na qual a descrição é a coluna 1,
+            e a chave a coluna 0
         '''
         
         if erase:
-#            self['values'] = list_content
-#            self.list_content = [item[1] for item in list_content]
             self['values'] = [item[1] for item in list_content]
             self.list_content = list_content
         else:
@@ -429,14 +431,13 @@ class ComboBoxDB(Combobox):
             else:
                 self['values'] = [item[1] for item in list_content]
                 self.list_content = list_content
-                
-    def get_key(self):
-        
-        if self.current() != -1:
-            
-            return self.list_content[self.current()][0]
-            
-        return None    
+
+
+    def get_key(self):        
+        if self.current() != -1:            
+            return self.list_content[self.current()][0]            
+        return self.current()    
+
     
     def set_key(self, key):        
         try:            
@@ -446,12 +447,8 @@ class ComboBoxDB(Combobox):
             self.current(index)
         except ValueError:            
             self.set('')
-            
-            
-#        if key in [x[0] for x in self.list_content]:
-#            i
-        
-        
+
+
 def configure(event):
     print(event.width, event.height)
     

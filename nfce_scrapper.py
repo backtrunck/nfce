@@ -9,6 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
+
 def wait_presence_by_id(drive, qt_seconds, id):
     try:
         WebDriverWait(drive, qt_seconds).until(
@@ -63,7 +64,8 @@ def open_browser(logger, browser_type='phanton'):
     logger.info('abrindo browser... ')    
     if browser_type == 'phanton':
         logger.info('phanton')
-        drive = webdriver.PhantomJS()    
+        drive = webdriver.PhantomJS(desired_capabilities= caps)
+        #drive = webdriver.PhantomJS()    
     elif browser_type == 'firefox':
         logger.info('firefox')
         drive = webdriver.Firefox()    
@@ -97,6 +99,8 @@ def make_image_file(uri, filename, main_url=''):
         
         return: nome do arquivo salvo
     '''
+    if not uri:
+        return ''
     verifica_path()
     filename = 'data/products/' + filename    
     if uri.split(':', 1)[0] == 'data':        

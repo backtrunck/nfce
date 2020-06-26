@@ -23,7 +23,7 @@ def get_engine_bd():
     host = 'localhost'
     password = os.environ.get('PASS_DB_NTFCE')
     banco = 'nota_fiscal'
-    engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), echo = True)
+    engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), echo = True, isolation_level="READ COMMITTED")
     return engine
     
 
@@ -60,10 +60,7 @@ def get_product(db_connection,  product_code):
     sql = "SELECT * FROM produtos_ean WHERE cd_ean_prod_serv = %s"
     
     return db_connection.execute(sql, (product_code, ))
-    
-    
-        
-    
+   
     
 if __name__ == '__main__':
     engine = get_engine_bd()

@@ -210,6 +210,7 @@ fields_items_invoice = Fields(
     Field('cd_ean_prod_serv', 'cd_ean_prod_serv', Entry, 'Gtim', 15, True, False, 1, Field.OP_EQUAL), 
     Field('cd_uf','cd_uf', Entry, 'Cd. Uf', 5, False, True, 1, Field.OP_GREATER_EQUAL),
     Field('cnpj','cnpj', Entry, 'Cnpj', 15, True, True, 2, Field.OP_EQUAL), 
+    Field('ds_produto','ds_produto', Entry, 'Prod.', 15, True, False, 2, Field.OP_EQUAL), 
     Field('nu_nfce','nu_nfce', Entry, 'Nota Fiscal', 10, True, True, 1, Field.OP_EQUAL),     
     Field('serie','serie', Entry, 'Serie', 5, False, True, 1, Field.OP_LESS_EQUAL), 
     Field('cd_modelo','cd_modelo', Entry, 'Modelo', 5, False, True, 1, Field.OP_LESS_EQUAL)])

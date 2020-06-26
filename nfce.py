@@ -1,11 +1,24 @@
-import re, os, datetime, util
+import re, os, datetime, util, sys
 import logging
-import mysql.connector
+#import mysql.connector
 from bs4 import BeautifulSoup
+from nfce_db import PRODUCT_NO_CLASSIFIED
+from nfce_models import Session,\
+                        NotaFiscal,\
+                        Emitente,\
+                        NotaFiscalFormaPagamento,\
+                        NotaFiscalTotais,\
+                        NotaFiscalTransporte, \
+                        ProdutoServico,\
+                        ProdutosProdServSemGtin,\
+                        ProdutosNcm,\
+                        ProdutoProdutoGtin,\
+                        ProdutoGtin
 
 
 class NfceArquivoInvalido(Exception):
     pass
+    
    
 class NfceParse():
     #'nt.fiscal.eletronica.2.html'
@@ -106,6 +119,7 @@ class NfceParse():
                             'Município':'cd_municipio', 
                             'Telefone':'telefone', 
                             'UF':'sg_uf', 
+                            'CEP':'cep', 
                             'País':'cd_pais', 
                             'Inscrição Estadual':'insc_estadual', 
                             'Inscrição Estadual do Substituto Tributário':'insc_estadual_substituto', 
@@ -132,18 +146,24 @@ class NfceParse():
                         'Valor da COFINS':'vl_cofins', 
                         'Valor Aproximado dos Tributos':'vl_aproximado_tributos'
                     }
-    #    NFC-e.tintas.html
-    #nota.fiscal.impressa.NFC-e.html    
-    def __init__(self, arquivo_nfce ='NFC-e.tintas.html', aj_texto = False,  aj_data = False,  aj_valor = False, log_file_name = '',  logNivel = logging.INFO):
+    
+    
+    def __init__(self,  arquivo_nfce ='NFC-e.tintas.html', 
+                        aj_texto = False,  
+                        aj_data = False,
+                        aj_valor = False,
+                        log_file_name = '',
+                        logNivel = logging.INFO):
         
         self.file_nfce = arquivo_nfce
         
         if not log_file_name:
             
             nome_base = os.path.basename(arquivo_nfce)
+            log_file_name = make_logs_path() + '/' + nome_base + '.log'
             
             logging.basicConfig(level       = logNivel, \
-                                filename    = nome_base + '.log', \
+                                filename    = log_file_name, \
                                 filemode    = 'w', \
                                 format      = '%(levelname)s;%(asctime)s;%(name)s;%(funcName)s;%(message)s')
         else:
@@ -153,12 +173,11 @@ class NfceParse():
             
         self.log = logging.getLogger(__name__)                    
         try:
-            self.log.info('Abrindo arquivo {}'.format(arquivo_nfce))
-            arq = open(arquivo_nfce,'r', encoding='utf-8')
-            self.log.info('Arquivo aberto com sucesso')
+            self.log.info('-;Abrindo arquivo {}'.format(arquivo_nfce))
+            arq = open(arquivo_nfce,'r', encoding='utf-8')            
             
         except Exception as e:
-            self.log.info('Erro ao abrir {}'.format(arquivo_nfce))
+            self.log.info('-;Erro ao abrir {}'.format(arquivo_nfce))
             raise e
             
         self.dados_nota_fiscal = BeautifulSoup(arq.read(),'lxml')
@@ -178,10 +197,9 @@ class NfceParse():
             self.chaves_nota_fiscal['serie'] = nfce['serie']
             self.chaves_nota_fiscal['cd_modelo'] = nfce['cd_modelo']
             self.chaves_nota_fiscal['cd_uf'] = nfce['cd_uf']
-            self.chaves_nota_fiscal['nu_nfce'] = nfce['nu_nfce']
-            self.log.info('Nota Fiscal {nu_nfce} Serie {serie} Modelo {cd_modelo} Uf {cd_uf} cnpj {cnpj}'.format(**nfce))
+            self.chaves_nota_fiscal['nu_nfce'] = nfce['nu_nfce']            
         else:
-            self.log.info('Arquivo de Nota Fiscal Inválido: {}'.format(arquivo_nfce))
+            self.log.info('-;Arquivo de Nota Fiscal Inválido: {}'.format(arquivo_nfce))
             raise NfceArquivoInvalido
     
     def obter_chave_acesso(self):
@@ -197,41 +215,45 @@ class NfceParse():
                       (obj:Boolean) Indica se vai obter todos os dados ou só aqueles constantes na chave
             Retorno (dicionario) Dicionario com os dados da nota fiscal
         '''
-        self.log.info('Obtendo dados sobre Nota Fiscal')
+        self.log.info('-;Obtendo dados sobre Nota Fiscal')
         
-        dados_nota = {}
-        str_log = ''
-        
-        #retirado da declaração da variavel formato_codigo_acesso não vão ser utilizados,  por enquanto
-        formato_codigo_acesso = {                   'cd_uf':(0, 2),   
-                                                    #'ano_mes':(2, 6),         
-                                                    'cnpj':(6, 20), 
-                                                    'cd_modelo':(20, 22), 
-                                                    'serie':(22, 25), 
-                                                    'numero':(25, 34), 
-                                                    'cd_forma_emissao':(34, 35), 
-                                                    'nu_nfce':(35, 43)
-                                                    #'digito_verificador':(43, 44)   
-                                                   } 
-        codigo_acesso = re.sub(' ', '', codigo_acesso)
-        for chave,  item in formato_codigo_acesso.items():
-            pos = formato_codigo_acesso[chave]
-            valor = codigo_acesso[ pos[0]:pos[1]]
-            dados_nota[chave] = valor
-            str_log += str(chave)+ ' = ' + str(valor) + ' '
-        if dados_completos:
-            dados_nota['chave_acesso'] = codigo_acesso
-            #inclui outros dados da nota
-            ntfce = self.obter_dados_nfc_e()
-            if ntfce:
-                for chave, valor in ntfce.items():
-                    if chave not in dados_nota.keys():
-                        dados_nota[chave]= valor
-                        str_log += str(chave)+ ' = ' + str(valor) + ' '
+        try:
+            dados_nota = {}
+            str_log = ''
             
-        self.log.info(str_log) 
-        self.log.info('Dados sobre Nota Fiscal obtidos com sucesso')
-        return dados_nota
+            #retirado da declaração da variavel formato_codigo_acesso não vão ser utilizados,  por enquanto
+            formato_codigo_acesso = {                   'cd_uf':(0, 2),   
+                                                        #'ano_mes':(2, 6),         
+                                                        'cnpj':(6, 20), 
+                                                        'cd_modelo':(20, 22), 
+                                                        'serie':(22, 25), 
+                                                        'numero':(25, 34), 
+                                                        'cd_forma_emissao':(34, 35), 
+                                                        'nu_nfce':(35, 43)
+                                                        #'digito_verificador':(43, 44)   
+                                                       } 
+            codigo_acesso = re.sub(' ', '', codigo_acesso)
+            for chave,  item in formato_codigo_acesso.items():
+                pos = formato_codigo_acesso[chave]
+                valor = codigo_acesso[ pos[0]:pos[1]]
+                dados_nota[chave] = valor
+                str_log += str(chave)+ ' = ' + str(valor) + ' '
+            if dados_completos:
+                dados_nota['chave_acesso'] = codigo_acesso
+                #inclui outros dados da nota
+                ntfce = self.obter_dados_nfc_e()
+                if ntfce:
+                    for chave, valor in ntfce.items():
+                        if chave not in dados_nota.keys():
+                            dados_nota[chave]= valor
+            
+            self.log.info('nota_fiscal;' + str(dados_nota))    
+            
+            
+            return dados_nota
+        except Exception as e:
+            self.log.error('-;' + str(e))
+            raise(e)
         
     def obter_dados_nfc_e(self):
         '''
@@ -307,61 +329,62 @@ class NfceParse():
     
     def obter_dados_produtos_e_servicos(self):
         ''' Obtem dados sobre produtos e serviços da Nota Fiscais'''
-        
-        self.log.info('Obtendo dados sobre produtos e serviços')
-        
-        dados_produtos_servicos = []
-        str_log = ''
-        tabelas = self.dados_nota_fiscal.findAll('table', {'id': re.compile('table-\d+')})
-        
-        if tabelas:
-            #loop nas tag tables encontradas no html da nota
-            for indice_tabela,  tabela in enumerate(tabelas):
-                tr = tabela.previous_sibling
-                
-                dado_produtos_servicos_1 = obter_texto_labels(NfceParse._dados_produtos_e_servicos_1, tr,  self.aj_texto, self.aj_data, self.aj_valor)
-                dado_produtos_servicos_2 = obter_texto_labels(NfceParse._dados_produtos_e_servicos_2, tabela,  self.aj_texto, self.aj_data, self.aj_valor)
-                
-                dados_produtos_icms = self.obter_dados_icms_normal(tabela)
-                dados_produtos_pis = self.obter_dados_pis(tabela)
-                dados_produtos_cofins = self.obter_dados_cofins(tabela)
-                
-                if dado_produtos_servicos_1:
-                    dado_produtos_servicos = {}
-                    for chave,  campo  in dado_produtos_servicos_1.items():
-                        dado_produtos_servicos[chave] = campo
-                        str_log += str(chave) + ' = ' + str(campo) + ' '                    
-                        
-                    if dado_produtos_servicos_2:
-                        for chave,  campo  in dado_produtos_servicos_2.items():
+        try:
+            self.log.info('-;Obtendo dados sobre produtos e serviços')
+            
+            dados_produtos_servicos = []
+            #str_log = ''
+            tabelas = self.dados_nota_fiscal.findAll('table', {'id': re.compile('table-\d+')})
+            
+            if tabelas:
+                #loop nas tag tables encontradas no html da nota
+                for indice_tabela,  tabela in enumerate(tabelas):
+                    tr = tabela.previous_sibling
+                    
+                    dado_produtos_servicos_1 = obter_texto_labels(NfceParse._dados_produtos_e_servicos_1, tr,  self.aj_texto, self.aj_data, self.aj_valor)
+                    dado_produtos_servicos_2 = obter_texto_labels(NfceParse._dados_produtos_e_servicos_2, tabela,  self.aj_texto, self.aj_data, self.aj_valor)
+                    
+                    dados_produtos_icms = self.obter_dados_icms_normal(tabela)
+                    dados_produtos_pis = self.obter_dados_pis(tabela)
+                    dados_produtos_cofins = self.obter_dados_cofins(tabela)
+                    
+                    if dado_produtos_servicos_1:
+                        dado_produtos_servicos = {}
+                        for chave,  campo  in dado_produtos_servicos_1.items():
                             dado_produtos_servicos[chave] = campo
-                            str_log += str(chave) + ' = ' + str(campo) + ' '
+                            #str_log += str(chave) + ' = ' + str(campo) + ' '                    
                             
-                    dados_produtos_servicos.append(dado_produtos_servicos)
-                    
-                if dados_produtos_icms:
-                    for chave,  valor in dados_produtos_icms.items():
-                        dado_produtos_servicos[chave] = valor
-                        str_log += str(chave) + ' = ' + str(campo) + ' '
+                        if dado_produtos_servicos_2:
+                            for chave,  campo  in dado_produtos_servicos_2.items():
+                                dado_produtos_servicos[chave] = campo
+                                #str_log += str(chave) + ' = ' + str(campo) + ' '
+                                
+                        dados_produtos_servicos.append(dado_produtos_servicos)
                         
-                if dados_produtos_cofins:   
-                    for chave,  valor in dados_produtos_cofins.items():
-                        dado_produtos_servicos[chave] = valor
-                        str_log += str(chave) + ' = ' + str(campo) + ' '
-                    
-                if dados_produtos_pis:   
-                    for chave,  valor in dados_produtos_pis.items():
-                        dado_produtos_servicos[chave] = valor
-                        str_log += str(chave) + ' = ' + str(campo) + ' '
-                self.log.info(str_log)        
-                str_log = ''
-        else:
-                self.log.info('Não foi possivel encontrar produtos e serviços na nota, não foram encontradas tag <table> com id do tipo: table-1,table-2,table-3 ...')
-                return None
-                
-        self.log.info('Dados sobre produtos e serviços obtidos com sucesso')
-        return dados_produtos_servicos
-                
+                    if dados_produtos_icms:
+                        for chave,  valor in dados_produtos_icms.items():
+                            dado_produtos_servicos[chave] = valor
+                            #str_log += str(chave) + ' = ' + str(campo) + ' '
+                            
+                    if dados_produtos_cofins:   
+                        for chave,  valor in dados_produtos_cofins.items():
+                            dado_produtos_servicos[chave] = valor
+                            #str_log += str(chave) + ' = ' + str(campo) + ' '
+                        
+                    if dados_produtos_pis:   
+                        for chave,  valor in dados_produtos_pis.items():
+                            dado_produtos_servicos[chave] = valor
+                            #str_log += str(chave) + ' = ' + str(campo) + ' '
+                    self.log.info('produtos_servicos;' + str(dado_produtos_servicos))
+            else:
+                    self.log.info('-;produtos e serviços da nota, não foram encontradas')
+                    return None
+            
+            return dados_produtos_servicos
+        except Exception as e:
+            self.log.error('-;' + str(e))
+            raise(e)
+            
     def obter_numero_nota(self):
         numero_nota = self._obter_informacao_por_id('lbl_numero_nfe', 'Núḿero da Nota')
         if numero_nota:
@@ -371,46 +394,47 @@ class NfceParse():
     
     
     def obter_dados_transporte(self):
-        self.log.info('Obtendo dados sobre transporte')
-        id = self.dados_nota_fiscal.find('div', {'id': 'Transporte'})
-        str_log = ''       
-        if id:
-          
-           dados_transporte = obter_texto_labels(NfceParse._dados_transporte, id,  self.aj_texto)
-           for chave, valor in dados_transporte.items():
-               str_log += chave + ' = ' + valor + ' '
-               
-           self.log.info(str_log)
-           self.log.info('Dados sobre produtos e serviços obtidos com sucesso')
-           return dados_transporte
-        else:
-            self.log.info('Não foi possivel encontrar dados do transporte na nota, , não foi encontrada a tag <table> com id do tipo: "Transporte"')
-            return None
+        try:
+            self.log.info('-;Obtendo dados sobre transporte')
+            id = self.dados_nota_fiscal.find('div', {'id': 'Transporte'})
+            #str_log = ''       
+            if id:          
+               dados_transporte = obter_texto_labels(NfceParse._dados_transporte, id,  self.aj_texto)               
+               self.log.info('nota_fiscal_transporte;' + str(dados_transporte))           
+               return dados_transporte
+            else:
+                self.log.info('-;Dados do transporte não encontrados')
+                return None            
+        except Exception as e:
+            self.error('-;' + str(e))
+            raise(e)
+            
             
     def obter_informacoes_complementares(self):
         ''' Obtem Dados complementares da Nota'''
-        
-        self.log.info('Obtendo dados sobre informações complementares')
-        #procura uma tag <td> no html da nota fiscal que contenha class='table-titulo-aba-interna' e text='Informações Complementares de Interesse do Contribuinte'
-        td = self.dados_nota_fiscal.find('td', {'class': 'table-titulo-aba-interna'},  text = 'Informações Complementares de Interesse do Contribuinte')
-        if td:
-            
-            if td.parent.parent.name =='table': #caso a estrutura seja <table><tr><td>
-                inf_complementar = td.parent.parent.next_sibling.next_sibling.get_text() 
-                self.log.info('Dados Complementares = ' + inf_complementar)
-                self.log.info('Dados Complementares obtidos com sucesso')
-                return inf_complementar
-            elif td.parent.parent.parent.name == 'table': #caso a estrutura seja <table><tbody><tr><td>
-                inf_complementar = td.parent.parent.parent.next_sibling.next_sibling.get_text()
-                self.log.info('Dados Complementares = ' + inf_complementar)
-                self.log.info('Dados Complementares obtidos com sucesso')
-                return inf_complementar
+        try:    
+            self.log.info('-;Obtendo dados sobre informações complementares')
+            #procura uma tag <td> no html da nota fiscal que contenha class='table-titulo-aba-interna' e text='Informações Complementares de Interesse do Contribuinte'
+            td = self.dados_nota_fiscal.find('td', {'class': 'table-titulo-aba-interna'},  text = 'Informações Complementares de Interesse do Contribuinte')
+            if td:                
+                if td.parent.parent.name =='table': #caso a estrutura seja <table><tr><td>
+                    inf_complementar = td.parent.parent.next_sibling.next_sibling.get_text() 
+                    self.log.info('nota_fiscal;ds_informacoes_complementares:' + inf_complementar)
+                    return inf_complementar
+                elif td.parent.parent.parent.name == 'table': #caso a estrutura seja <table><tbody><tr><td>
+                    inf_complementar = td.parent.parent.parent.next_sibling.next_sibling.get_text()
+                    self.log.info('nota_fiscal;ds_informacoes_complementares:' + inf_complementar)
+                    return inf_complementar
+                else:
+                    self.log.info('-;Informações complementares da Nota não foram encontradas')
+                    return None
             else:
-                self.log.info('Não foi possivel encontrar as inforamções complementares da Nota, não encontrada a tab table que engloba a tag <td> das inf. complementares')
-                return None
-        else:
-            self.log.info('Não foi possivel as informações complementares da Nota, não foi encontrada tag <td> com class="table-titulo-aba-interna" e text ="Informações Complementares de Interesse do Contribuinte"')
-    
+                self.log.info('-;Informações complementares da Nota não foram encontradas')
+        except Exception as e:
+            self.log.error('-;' + str(e))
+            raise(e)
+            
+            
     def obter_data_emissao(self):
         data_emissao = self._obter_informacao_por_id('lbl_dt_emissao', 'Data Emissão')
         
@@ -497,133 +521,80 @@ class NfceParse():
     
     def obter_dados_valores_totais(self):
         ''' Obtém os dados sobre os valores totais da Nota Fiscal'''
-        
-        self.log.info('Obtendo dados sobre valores totais da Nota')
-        div = self.dados_nota_fiscal.find('div', {'id': 'Totais'})
-        if div:         
-           str_log = '' 
-           dados_totais = obter_texto_labels(NfceParse._dados_totais, div, self.aj_texto, self.aj_data, self.aj_valor)
-           for chave, valor in dados_totais.items():
-               str_log += str(chave) + ' = ' + str(valor) + '  '
-               
-           self.log.info(str_log)
-           self.log.info('Dados sobre valores totais da Nota obtidos com sucesso')
-           return dados_totais
-        else:
-            self.log.info('Não foi possivel encontrar os totais da nota, não foi encontrada a <div> com id igual a "Totais"')
-            return None
+        try:
+            self.log.info('-;Obtendo dados sobre valores totais da Nota')
+            div = self.dados_nota_fiscal.find('div', {'id': 'Totais'})
+            if div:         
+               #str_log = '' 
+                dados_totais = obter_texto_labels(NfceParse._dados_totais, div, self.aj_texto, self.aj_data, self.aj_valor)
+    #           for chave, valor in dados_totais.items():
+    #               str_log += str(chave) + ' = ' + str(valor) + '  '
+                self.log.info('nota_fiscal_totais;' + str(dados_totais))
+                return dados_totais
+            else:
+                self.log.info('-;Dados totais da nota, não foram encontrados')
+                return None
+        except Exception as e:
+            self.info.error('-;' + str(e))
+            raise(e)
         
     
     def obter_dados_cobranca(self):
         ''' Obtem os dados da cobrança do arquivo html relativo a Notas Fiscais'''
-        
-        self.log.info('Obtendo dados sobre Cobrança')
-        
-        campos = (  'ds_forma_pagamento',  'vl_pagamento',  'cnpj_credenciadora',  'bandeira_operacao',  \
-                            'numero_autorizacao')
-                            
-        #não foi possivel utilizar a função obter_texto_labels, pois os <span> não ficam ao lodo do <label>
-        id = self.dados_nota_fiscal.find('div', {'id': 'Cobranca'})
-        spans = id.findAll('span')
-        
-        if spans:
-            str_log = ''
-            cobranca = {}
-            for indice,  span in enumerate(spans):  
-                valor = span.get_text()
-                cobranca[campos[indice]] = valor
-                str_log += str(campos[indice]) + ' = ' + str(valor) + ' '
-                
-            self.log.info('Dados de Cobrança-> ' + str_log)
-            self.log.info('Dados de Cobrança obtidos com sucesso')
-            return cobranca
-        else:
-            self.log.info('Não foi possivel encontrar dados da cobrança na nota, não foi encontrada a <div> com id igual a "Cobranca"')
-            return None
-        
-    def obter_dados_emitente_2(self):
-        
-        self.log.info('Obtendo dados sobre Emitentes')
-        
-        div = self.dados_nota_fiscal.find('div', {'id': 'Emitente'})
-        
-        if div:
-            str_log = ''
-            dados_emitente = obter_texto_labels(NfceParse._dados_emitente, div,  self.aj_texto, self.aj_data, self.aj_valor)
-           
-            if dados_emitente:
-               for chave, valor in dados_emitente.items():
-                    if chave in ('cd_municipio', 'cd_pais'):         #para dados do tipo '1-descricao' pega somente o dado antes do '-'
-                       dados_emitente[chave] = valor.split('-')[0]  
-                    if chave in  ('cnpj', 'cep', 'telefone') :
-                        dados_emitente[chave] = util.retirar_pontuacao(valor)
-                        
-                    str_log += str(chave) + ' = ' + str(dados_emitente[chave]) + ' '
+        try:
+            self.log.info('-;Obtendo dados sobre Cobrança')
+            
+            campos = (  'ds_forma_pagamento',  'vl_pagamento',  'cnpj_credenciadora',  'bandeira_operacao',  \
+                                'numero_autorizacao')
+                                
+            #não foi possivel utilizar a função obter_texto_labels, pois os <span> não ficam ao lodo do <label>
+            id = self.dados_nota_fiscal.find('div', {'id': 'Cobranca'})
+            spans = id.findAll('span')
+            
+            if spans:
+                #str_log = ''
+                cobranca = {}
+                for indice,  span in enumerate(spans):  
+                    valor = span.get_text()
+                    cobranca[campos[indice]] = valor
+                    #str_log += str(campos[indice]) + ' = ' + str(valor) + ' '
                     
-            self.log.info(str_log)
-            self.log.info('Dados sobre Emitentes obtidos com sucesso')            
-            return dados_emitente
-        else:
-            return None
-            
-    def obter_dados_emitente(self, id = 'Emitente'):
-        ''' Obtem dados relativos ao Emitente da Nota Fiscal'''
-        
-        self.log.info('Obtendo dados do Emitente da Nota Fiscal')   
-        
-        #obtem a div com id 'Emitente'
-        div_emitente = self._obter_informacao_por_id(id, 'Emitente')
-        
-        
-        if div_emitente:            #se acho a div 'Emitente'
-            str_log = ''
-            #informações disponiveis do emitente na nota
-            campos = (  'razao_social', 
-                        'nm_fantasia',  
-                        'cnpj',  
-                        'endereco',  
-                        'bairro_distrito',  
-                        'cep',
-                        'cd_municipio',
-                        'telefone',
-                        'uf',
-                        'cd_pais',
-                        'insc_estadual',
-                        'insc_estadual_substituto',
-                        'insc_municipal',
-                        'cd_municipio_ocorrencia',
-                        'cnae_fiscal',
-                        'ds_regime_tributario')
+                self.log.info('nota_fiscal_formas_pagamentos;' + str(cobranca))
+                return cobranca
+            else:
+                self.log.info('-;Dados da cobrança da nota não foram encontrados')
+                return None
+        except Exception as e:
+            self.info.error('-;' + str(e))
+            raise(e)
+
+
+    def obter_dados_emitente(self):
+        try:
+            self.log.info('-;Obtendo dados sobre Emitente')            
+            div = self.dados_nota_fiscal.find('div', {'id': 'Emitente'})            
+            if div:
+                #str_log = ''
+                dados_emitente = obter_texto_labels(NfceParse._dados_emitente, div,  self.aj_texto, self.aj_data, self.aj_valor)               
+                if dados_emitente:
+                   for chave, valor in dados_emitente.items():
+                        if chave in ('cd_municipio', 'cd_pais'):         #para dados do tipo '1-descricao' pega somente o dado antes do '-'
+                            if isinstance(valor, str):
+                                dados_emitente[chave] = valor.split('-')[0]
+                                if not dados_emitente[chave].strip():
+                                    dados_emitente[chave] = '0'
+                        if chave in  ('cnpj', 'cep', 'telefone') :
+                            dados_emitente[chave] = util.retirar_pontuacao(valor)
                         
-            #obtem as tags filhas de div 'Emitente' e transforma numa lista
-            lst_emitente = list(div_emitente.children)            
-            #cria um novo objeto BeautifuSoup a partir dos filhos da div 'Emitente', usei a função str, sem ela dá erro
-            table_emitente = BeautifulSoup(str(lst_emitente[1]), 'lxml')
-        
-            emitente={}             #cria um dicionario para guardar as informações do emitente
-            
-            for chave, span in enumerate(table_emitente.findAll('span')):     
-                if campos[chave]  in ('cnpj', 'cep', 'telefone') :
-                     valor = util.retirar_pontuacao(ajustar_texto(span.get_text()))
-                     emitente[campos[chave]] = valor
-                     str_log += str(campos[chave]) + '=' + str(valor) + ' '
-                elif campos[chave]  in ('cd_municipio', 'cd_pais') :     #este campos tem a seguinte formatacao 'cogigo-descricao'
-                    dados = ajustar_texto(span.get_text()).split('-')                                        #quebra o campo em '-'
-                    valor = dados[0].strip() 
-                    emitente[campos[chave]] = valor                                              #guarda o codigo
-                    str_log += str(campos[chave]) + '=' + str(valor) + ' '
-                else:
-                    valor = ajustar_texto(span.get_text())
-                    emitente[campos[chave]] = valor 
-                    str_log += str(campos[chave]) + '=' + str(valor) + ' '
-                    
-            self.log.info('retornou->' +  str_log)   
-            return emitente
-        else:
-            self.log.info('Emitente não encontrado, nenhuma tag com id="Emitente"' + str_log) 
-            return None
-            
-        
+                self.log.info('emitente;' + str(dados_emitente))
+                return dados_emitente
+            else:
+                self.log.info('-;Dados sobre Emitente não encontrados')
+                return None
+        except Exception as e:
+            self.log.error('-;' + str(e))
+            raise(e)
+
     def _obter_informacao_por_id(self, id, nome_informacao): 
         dados = self.dados_nota_fiscal.findAll(id = id)
         qt_dados = len(dados)
@@ -636,80 +607,438 @@ class NfceParse():
 
     
 class NfceBd():
-    def __init__(self,  nota_fiscal_e, 
-                        db_connection = None, 
-                        user        =   'nota_fiscal_app', 
-                        password    =   'wolverine', 
-                        host        =   '127.0.0.1', 
-                        database    =   'nota_fiscal'):
-                            
-        if db_connection:
-            self.conexao = db_connection
-        else:
-            self.conexao = mysql.connector.connect(user = user,  password = password,  host = host,  database = database)
+    def __init__(self, logger=None):
+        self.session = Session()
+        self.logger = logger
         
-        self.nota_fiscal = nota_fiscal_e
+    def __write_info_log(self,msg):
+        if self.logger:
+            self.logger.info(msg)
+
+
+    def __write_error_log(self, msg):
+        if self.logger:
+            self.logger.error(msg)
+
     
-    
+    def insert_full_invoice_in_db(self, invoice_parser):
         
+        supplier_data = invoice_parser.obter_dados_emitente()
+        self.insert_supplier_data_in_db(supplier_data, self.session)
+        
+        acess_key = invoice_parser.obter_chave_acesso()  
+        invoice_data = invoice_parser.obter_dados_nfe_codigo_acesso(acess_key)
+        extra_data = invoice_parser.obter_informacoes_complementares()
+        invoice_data['ds_informacoes_complementares'] = extra_data
+        self.insert_invoice_data_in_db(invoice_data, self.session)
+        
+        payment_data = invoice_parser.obter_dados_cobranca()
+        self.__include_keys(payment_data, invoice_parser)
+        self.insert_payment_data_in_db(payment_data, self.session)
+        
+        total_data = invoice_parser.obter_dados_valores_totais()
+        self.__include_keys(total_data, invoice_parser)
+        self.insert_total_data_in_db(total_data, self.session)
+        
+        delivery_data = invoice_parser.obter_dados_transporte()
+        self.__include_keys(delivery_data, invoice_parser)
+        self.insert_delivery_data_in_db(delivery_data, self.session)
+        
+        products_data = invoice_parser.obter_dados_produtos_e_servicos()
+        for product_data in products_data:
+            self.__include_keys(product_data, invoice_parser)
+        self.insert_products_data_in_db(products_data, self.session)
+        
+    def insert_supplier_data_in_db(self, supplier_data, session):
+        try:
+            if supplier_data:
+                query = session.query(Emitente).filter(Emitente.cnpj == supplier_data['cnpj'])    
+                if query.count() == 0:
+                    emitente = Emitente()
+                    emitente.cnpj = supplier_data['cnpj']
+                    emitente.razao_social = supplier_data['razao_social']
+                    emitente.nm_fantasia = supplier_data['nm_fantasia']
+                    emitente.endereco = supplier_data['endereco']
+                    emitente.bairro = supplier_data['bairro']
+                    emitente.cep = supplier_data['cep']
+                    emitente.cd_municipio = supplier_data['cd_municipio']
+                    emitente.cd_municipio_ocorrencia = supplier_data['cd_municipio_ocorrencia']
+                    emitente.telefone = supplier_data['telefone']
+                    emitente.sg_uf = supplier_data['sg_uf']
+                    emitente.cd_pais = supplier_data['cd_pais']
+                    emitente.insc_estadual = supplier_data['insc_estadual']
+                    emitente.cnae_fiscal = supplier_data['cnae_fiscal']
+                    emitente.ds_regime_tributario = supplier_data['ds_regime_tributario']
+                    emitente.insc_estadual_substituto = supplier_data['insc_estadual_substituto']
+                    emitente.insc_municipal = supplier_data['insc_municipal'] 
+                    session.add(emitente)
+                    self.__write_info_log(f'-;insert emitente cnpj: {emitente.cnpj} razao_social: {emitente.razao_social}')
+                else:
+                    self.__write_info_log(f'-;Emitente existente cnpj: {supplier_data["cnpj"]} razao_social: {supplier_data["razao_social"]}')
+            else:
+                self.__write_info_log('-;Emitente não inserido - Sem Dados')
+        except Exception as e:
+            self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados do fornecedor da nota_fiscal: ' + str(e))
+            raise(e)
+
+
+    def insert_invoice_data_in_db(self, invoice_data, session):
+        try:
+            if invoice_data:
+                query = session.query(NotaFiscal)
+                query = query.filter(NotaFiscal.nu_nfce == invoice_data['nu_nfce'], 
+                                          NotaFiscal.cd_uf == invoice_data['cd_uf'], 
+                                          NotaFiscal.serie == invoice_data['serie'], 
+                                          NotaFiscal.cnpj == invoice_data['cnpj'], 
+                                          NotaFiscal.cd_modelo == invoice_data['cd_modelo'])
+                if query.count() == 0:
+                    nt = NotaFiscal()
+                    nt.nu_nfce = invoice_data['nu_nfce']
+                    nt.cd_uf = invoice_data['cd_uf']
+                    nt.serie = invoice_data['serie']
+                    nt.cnpj = invoice_data['cnpj']
+                    nt.cd_modelo = invoice_data['cd_modelo']
+                    nt.cd_forma_emissao = invoice_data['cd_forma_emissao']
+                    nt.dt_emissao = invoice_data['dt_emissao']
+                    nt.chave_acesso = invoice_data['chave_acesso']            
+                    nt.numero = invoice_data['numero']
+                    nt.dt_saida = None
+                    nt. vl_total = invoice_data['vl_total']
+                    nt.ds_informacoes_complementares = invoice_data['ds_informacoes_complementares']            
+                    session.add(nt)
+                    self.__write_info_log(f'-;Inserida Ntfe: {invoice_data["nu_nfce"]} valor: {invoice_data["vl_total"]}')
+                else:
+                    self.__write_info_log(f'-;Ntfe: {invoice_data["nu_nfce"]} valor: {invoice_data["vl_total"]} já incluída')
+            else:
+                self.__write_info_log('-;Nota Fiscal não inserida - Sem Dados')
+        except Exception as e:
+            self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados da nota_fiscal: ' + str(e))
+            raise(e)
+
+
+    def insert_payment_data_in_db(self, bill_data, session):
+        try:
+            if bill_data['ds_forma_pagamento']:
+                query = session.query(NotaFiscalFormaPagamento)
+                query = query.filter(NotaFiscalFormaPagamento.nu_nfce == bill_data['nu_nfce'], 
+                                     NotaFiscalFormaPagamento.cd_uf == bill_data['cd_uf'], 
+                                     NotaFiscalFormaPagamento.serie == bill_data['serie'], 
+                                     NotaFiscalFormaPagamento.cnpj == bill_data['cnpj'], 
+                                     NotaFiscalFormaPagamento.cd_modelo == bill_data['cd_modelo'])
+                if query.count() == 0:
+                    nt = NotaFiscalFormaPagamento()
+                    nt.cd_uf = bill_data['cd_uf']
+                    nt.cnpj = bill_data['cnpj']
+                    nt.nu_nfce = bill_data['nu_nfce']
+                    nt.serie = bill_data['serie']
+                    nt.cd_modelo = bill_data['cd_modelo']
+                    nt.ds_forma_pagamento = bill_data['ds_forma_pagamento']
+                    nt.vl_pagamento = bill_data['vl_pagamento']
+                    nt.cnpj_credenciadora = bill_data['cnpj_credenciadora']
+                    nt.bandeira_operacao = bill_data['bandeira_operacao']
+                    session.add(nt)
+                    self.__write_info_log(f'-;Inserida Forma de Pagamento Ntfe: {bill_data["nu_nfce"]} - {bill_data["ds_forma_pagamento"]}')
+                else:
+                    self.__write_info_log(f'-;Forma de Pagamento Ntfe: {bill_data["nu_nfce"]} já incluída')
+            else:
+                self.__write_info_log('-;Forma de Pagamento Ntfe não inserida - Sem Dados')
+        except Exception as e:
+            self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados do pagamento da nota fiscal: ' + str(e))
+            raise(e)
+    
+
+    def insert_total_data_in_db(self, total_data, session):
+        try:
+            query = session.query(NotaFiscalTotais)
+            query = query.filter(NotaFiscalTotais.nu_nfce == total_data['nu_nfce'], 
+                                 NotaFiscalTotais.cd_uf == total_data['cd_uf'], 
+                                 NotaFiscalTotais.serie == total_data['serie'], 
+                                 NotaFiscalTotais.cnpj == total_data['cnpj'], 
+                                 NotaFiscalTotais.cd_modelo == total_data['cd_modelo'])
+            if query.count() == 0:
+                nt = NotaFiscalTotais()
+                nt.nu_nfce = total_data['nu_nfce']
+                nt.cd_uf = total_data['cd_uf']
+                nt.serie = total_data['serie']
+                nt.cnpj = total_data['cnpj']
+                nt.cd_modelo = total_data['cd_modelo']
+                nt.vl_base_calculo_icms = total_data['vl_base_calculo_icms']
+                nt.vl_icms = total_data['vl_icms']
+                nt.vl_icms_desonerado = total_data['vl_icms_desonerado'] 
+                nt.vl_base_calculo_icms_st = total_data['vl_base_calculo_icms_st']
+                nt.vl_icms_substituicao = total_data['vl_icms_substituicao'] 
+                nt.vl_total_produtos = total_data['vl_total_produtos']
+                nt.vl_frete = total_data['vl_frete']
+                nt.vl_seguro = total_data['vl_seguro']
+                nt.vl_outras_despesas_acesso = total_data['vl_outras_despesas_acesso'] 
+                nt.vl_total_ipi = total_data['vl_total_ipi']
+                nt.vl_total_nfe = total_data['vl_total_nfe']
+                nt.vl_total_descontos = total_data['vl_total_descontos']
+                nt.vl_total_ii = total_data['vl_total_ii'] 
+                nt.vl_pis = total_data['vl_pis']
+                nt.vl_cofins = total_data['vl_cofins'] 
+                nt.vl_aproximado_tributos = total_data['vl_aproximado_tributos']
+                session.add(nt)
+                self.__write_info_log(f'-;Inseridos Totais da Ntfe: {total_data["nu_nfce"]}')
+            else:
+                self.__write_info_log(f'-;Totais da Ntfe: {total_data["nu_nfce"]} já incluídos')
+            
+        except Exception as e:
+            self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados dos totais da nota fiscal: ' + str(e))
+            raise(e)
+
+
+    def insert_delivery_data_in_db(self, delivery_data, session):
+        try:
+            query = session.query(NotaFiscalTransporte)
+            query = query.filter(NotaFiscalTransporte.nu_nfce == delivery_data['nu_nfce'], 
+                                 NotaFiscalTransporte.cd_uf == delivery_data['cd_uf'], 
+                                 NotaFiscalTransporte.serie == delivery_data['serie'], 
+                                 NotaFiscalTransporte.cnpj == delivery_data['cnpj'], 
+                                 NotaFiscalTransporte.cd_modelo == delivery_data['cd_modelo'])
+            if query.count() == 0:
+                nt = NotaFiscalTransporte()
+                nt.nu_nfce = delivery_data['nu_nfce']
+                nt.cd_uf = delivery_data['cd_uf']
+                nt.serie = delivery_data['serie']
+                nt.cnpj = delivery_data['cnpj']
+                nt.cd_modelo = delivery_data['cd_modelo']
+                nt.ds_modalidade_frete =delivery_data['ds_modalidade_frete']
+                session.add(nt)
+                self.__write_info_log(f'-;Transporte da Ntfe: {delivery_data["nu_nfce"]} - {delivery_data["ds_modalidade_frete"]}')            
+            else:
+                self.__write_info_log(f'-;Transporte da Ntfe: {delivery_data["nu_nfce"]} já incluído')            
+        except Exception as e:
+            self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados sobre o transporte da nota fiscal: ' + str(e))
+            raise(e)
+
+
+    def insert_products_data_in_db(self, products_data, session): 
+        try:
+            if products_data:
+                query = session.query(ProdutoServico)
+                for product_data in products_data:
+                    query = query.filter( ProdutoServico.nu_nfce == product_data['nu_nfce'], 
+                                          ProdutoServico.cd_uf == product_data['cd_uf'], 
+                                          ProdutoServico.serie == product_data['serie'], 
+                                          ProdutoServico.cnpj == product_data['cnpj'], 
+                                          ProdutoServico.cd_modelo == product_data['cd_modelo'], 
+                                          ProdutoServico.nu_prod_serv == product_data['nu_prod_serv'])
+                    if query.count() == 0:
+                        self.insert_product_gtin_data(product_data, session)
+                        produto = ProdutoServico()
+                        produto.nu_nfce = product_data['nu_nfce']
+                        produto.cd_uf = product_data['cd_uf']
+                        produto.serie = product_data['serie']
+                        produto.cnpj = product_data['cnpj']
+                        produto.cd_modelo = product_data['cd_modelo']
+                        produto.nu_prod_serv = product_data['nu_prod_serv']        
+                        produto.ds_prod_serv = product_data['ds_prod_serv']
+                        produto.qt_prod_serv = product_data['qt_prod_serv']
+                        produto.un_comercial_prod_serv = product_data['un_comercial_prod_serv']
+                        produto.vl_prod_serv = product_data['vl_prod_serv']            
+                        produto.cd_prod_serv = product_data['cd_prod_serv'] 
+                        produto.cd_ncm_prod_serv = product_data['cd_ncm_prod_serv']
+                        produto.cd_ex_tipi_prod_serv = product_data['cd_ex_tipi_prod_serv'] 
+                        produto.cfop_prod_serv = product_data['cfop_prod_serv']
+                        produto.vl_out_desp_acess = product_data['vl_out_desp_acess']
+                        produto.vl_desconto_prod_serv = product_data['vl_desconto_prod_serv']
+                        produto.vl_frete_prod_serv = product_data['vl_frete_prod_serv'] 
+                        produto.vl_seguro_prod_serv = product_data['vl_seguro_prod_serv']
+                        produto.ind_composicao_prod_serv = product_data['ind_composicao_prod_serv']
+                        produto.cd_ean_prod_serv = product_data['cd_ean_prod_serv']
+                        produto.qt_comercial_prod_serv = product_data['qt_comercial_prod_serv']
+                        produto.cd_ean_tributavel_prod_serv = product_data['cd_ean_tributavel_prod_serv']
+                        produto.un_tributavel_prod_serv = product_data['un_tributavel_prod_serv']
+                        produto.qt_tributavel_prod_serv = product_data['qt_tributavel_prod_serv'] 
+                        produto.vl_unit_comerc_prod_serv = product_data['vl_unit_comerc_prod_serv']
+                        produto.vl_unit_tribut_prod_serv= product_data['vl_unit_tribut_prod_serv']
+                        produto.nu_pedido_compra_prod_serv = product_data['nu_pedido_compra_prod_serv']
+                        produto.item_pedido_prod_serv = product_data['item_pedido_prod_serv']
+                        produto.vl_aprox_tributos_prod_serv = product_data['vl_aprox_tributos_prod_serv']
+                        produto.nu_fci_prod_serv = product_data['nu_fci_prod_serv']
+                        produto.cest_prod_serv = product_data['cest_prod_serv']
+                        session.add(produto)
+                        #self.__write_info_log(f'-;Inserido Produto: {product_data["nu_prod_serv"]} - {product_data["ds_prod_serv"]}')     
+                        self.__write_info_log('-;Inserido Produto: {}-{} Gtin:{} Ncm:{}'.\
+                            format(product_data['nu_prod_serv'], 
+                                   product_data['ds_prod_serv'], 
+                                   product_data['cd_ean_prod_serv'], 
+                                   product_data['cd_ncm_prod_serv']))     
+                        self.match_id_produto(product_data, session)                        
+                    else:
+                        #self.__write_info_log(f'-;Produto: {product_data["nu_prod_serv"]} - {product_data["ds_prod_serv"]} já incluído')     
+                        self.__write_info_log('-;Produto: {}-{} Gtin:{} Ncm:{} já inserido'.\
+                            format(product_data['nu_prod_serv'], 
+                                   product_data['ds_prod_serv'], 
+                                   product_data['cd_ean_prod_serv'], 
+                                   product_data['cd_ncm_prod_serv']))
+                    query = session.query(ProdutoServico)
+            else:
+                self.__write_info_log('-;Produto não inseridos - sem dados')         
+        except Exception as e:
+            self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados dos produtos da nota_fiscal: ' + str(e))
+            raise(e)
+
+
+    def insert_product_gtin_data(self, product_data, session):
+        ''' 
+            Inclue um produto na tabela produto_gtim
+        '''
+        if product_data:
+            if product_data['cd_ean_prod_serv'] != 'SEM GTIN': #produto sem código de barras?
+                query = session.query(ProdutoGtin)
+                query = query.filter( ProdutoGtin.cd_ean_produto == product_data['cd_ean_prod_serv'])
+                if query.count() == 0:
+                    produto = ProdutoGtin()
+                    produto.cd_ean_produto = product_data['cd_ean_prod_serv']
+                    produto.ds_produto = product_data['ds_prod_serv']
+                    produto.cd_ncm_produto = product_data['cd_ncm_prod_serv']
+                    session.add(produto)
+                    self.__write_info_log(f'-;Inserido Produto Gtin: {product_data["cd_ean_prod_serv"]} - {product_data["ds_prod_serv"]}')     
+                    
+
+
+
+    def match_id_produto(self, product_data, session):
+
+        query_ean = None
+        query_no_ean = None
+        if product_data: #tem dados?
+            if product_data['cd_ean_prod_serv'] == 'SEM GTIN': #produto sem código de barras?
+                query_no_ean = session.query(ProdutosProdServSemGtin)
+                query_no_ean = query_no_ean.filter(ProdutosProdServSemGtin.cnpj == product_data['cnpj'], 
+                                      ProdutosProdServSemGtin.cd_prod_serv == product_data['cd_prod_serv']) #verifica se esta na tabela de_para
+                if query_no_ean.count() > 0: #se estiver, nada a fazer
+                   return
+            else: #produto com código de barras.
+                query_ean = session.query(ProdutoProdutoGtin)
+                query_ean = query_ean.filter(ProdutoProdutoGtin.cd_ean_produto == product_data['cd_ean_prod_serv']) #verifica se esta na tabela de_para
+                if query_ean.count() == 1: #se estiver nada a fazer
+                    return
+            query = session.query(ProdutosNcm) #não achou o produto na tabela de_para. verifica na tabela de_para ncm_padrões x produto.
+            query = query.filter(ProdutosNcm.cd_ncm == product_data['cd_ncm_prod_serv'])
+            if query.count() != 0: #encontrou o produto?
+                result = query.all()
+                if query_ean:   #produto com código de barras?
+                    pp_gtin = ProdutoProdutoGtin()
+                    pp_gtin.cd_ean_produto = product_data['cd_ean_prod_serv']
+                    pp_gtin.id_produto = result[0].id_produto
+                    session.add(pp_gtin)    #nova entrada na tabela de_para
+                   #self.__write_info_log(f'-;Inserido Produto x Produto Gtin: {product_data["cd_ean_prod_serv"]} - {product_data["ds_prod_serv"]} id_produto: {result[0].id_produto}')     
+                    self.__write_info_log('-;Inserido Produto x Produto Gtin: {} - {} id_produto: {}'\
+                            .format(product_data['cd_ean_prod_serv'], 
+                                    product_data["ds_prod_serv"], 
+                                    result[0].id_produto))     
+                else:#produto sem código de barras
+                    p_no_gtin = ProdutosProdServSemGtin()
+                    p_no_gtin.cnpj = product_data['cnpj']
+                    p_no_gtin.cd_prod_serv = product_data['cd_prod_serv']
+                    p_no_gtin.id_produto = result[0].id_produto #nova entrada na tabela de_para
+                    session.add(p_no_gtin)
+                    #self.__write_info_log(f'-;Inserido Produto x Prod Serv sem Gtin - cnpj: {product_data["cnpj"]} cd_prod_serv: {product_data["cd_prod_serv"]} id_produto: {result[0].id_produto}')     
+                    self.__write_info_log('-;Inserido Produto x Prod Serv sem Gtin - cnpj: {} cd_prod_serv: {} id_produto: {} ds_prod_serv: {}'\
+                            .format(product_data['cnpj'], 
+                                    product_data["cd_prod_serv"], 
+                                    result[0].id_produto, 
+                                    product_data["ds_prod_serv"])) 
+                    
+            else: #não encontrou produto na tabela de ncm padrões. cria uma estrada nesta tabela e nas outras de_para com o produto 'a classificar'
+                p_ncm = ProdutosNcm()
+                p_ncm.cd_ncm = product_data['cd_ncm_prod_serv']
+                p_ncm.id_produto = PRODUCT_NO_CLASSIFIED
+                session.add(p_ncm)
+                #self.__write_info_log(f'-;Inserido Produto Ncm - Ncm: {product_data["cd_ncm_prod_serv"]} Produto não classificado : {PRODUCT_NO_CLASSIFIED}')     
+                self.__write_info_log('-;Inserido Produto Ncm: {} Produto não classificado : {} ds_prod_serv: {}'\
+                            .format(product_data['cd_ncm_prod_serv'],
+                                    PRODUCT_NO_CLASSIFIED, 
+                                    product_data["ds_prod_serv"])) 
+                if query_ean:
+                    pp_gtin = ProdutoProdutoGtin()
+                    pp_gtin.cd_ean_produto = product_data['cd_ean_prod_serv']
+                    pp_gtin.id_produto = PRODUCT_NO_CLASSIFIED
+                    session.add(pp_gtin)
+                    #self.__write_info_log(f'-;Inserido Produto x Produto Gtim : {product_data["cd_ean_prod_serv"]} Produto não classificado : {PRODUCT_NO_CLASSIFIED}')     
+                    self.__write_info_log('-;Inserido Produto x Produto Gtim : {} Produto não classificado : {} ds_prod_serv: {}'\
+                            .format(product_data['cd_ean_prod_serv'],
+                                    PRODUCT_NO_CLASSIFIED, 
+                                    product_data["ds_prod_serv"])) 
+                else:
+                    p_no_gtin = ProdutosProdServSemGtin()
+                    p_no_gtin.cnpj = product_data['cnpj']
+                    p_no_gtin.cd_prod_serv = product_data['cd_prod_serv']
+                    p_no_gtin.id_produto = PRODUCT_NO_CLASSIFIED
+                    session.add(p_no_gtin)
+                    #self.__write_info_log(f'-;Inserido Produto x Prod Serv Sem Gtim : Inserido Produto x Prod Serv sem Gtin - cnpj: {product_data["cnpj"]} cd_prod_serv: {product_data["cd_prod_serv"]} Produto não classificado : {PRODUCT_NO_CLASSIFIED}')     
+                    self.__write_info_log('-;Inserido Produto x Prod Serv sem Gtin - cnpj: {} cd_prod_serv: {} Produto não classificado: {} ds_prod_serv: {}'\
+                            .format(product_data['cnpj'], 
+                                    product_data["cd_prod_serv"], 
+                                    PRODUCT_NO_CLASSIFIED, 
+                                    product_data["ds_prod_serv"])) 
+
+
     def inserir_nfce(self):
-        
-        
-        cursor = self.conexao.cursor()
-        
         chave_acesso = self.nota_fiscal.obter_chave_acesso()  
         dados_nfe = self.nota_fiscal.obter_dados_nfe_codigo_acesso(chave_acesso)
         
-        sql =   'select nu_nfce                     \
-                from nota_fiscal                    \
-                where   cd_uf = %s and              \
-                        cnpj = %s and               \
-                        nu_nfce = %s and            \
-                        serie = %s and              \
-                        cd_modelo = %s'
-                        
-        cursor.execute(sql, (   dados_nfe['cd_uf'], 
-                                dados_nfe['cnpj'], 
-                                dados_nfe['nu_nfce'],
-                                dados_nfe['serie'],
-                                dados_nfe['cd_modelo'], ))
-        cursor.fetchall()
-                                    
-        if cursor.rowcount == 0:
-           
+#        cursor = self.conexao.cursor()
+        
+        chave_acesso = self.nota_fiscal.obter_chave_acesso()  
+        dados_nfe = self.nota_fiscal.obter_dados_nfe_codigo_acesso(chave_acesso)
+      
+        
+#        sql =   'select nu_nfce                     \
+#                from nota_fiscal                    \
+#                where   cd_uf = %s and              \
+#                        cnpj = %s and               \
+#                        nu_nfce = %s and            \
+#                        serie = %s and              \
+#                        cd_modelo = %s'
+#                        
+#        cursor.execute(sql, (   dados_nfe['cd_uf'], 
+#                                dados_nfe['cnpj'], 
+#                                dados_nfe['nu_nfce'],
+#                                dados_nfe['serie'],
+#                                dados_nfe['cd_modelo'], ))
+#        cursor.fetchall()
+#                                    
+#        if cursor.rowcount == 0:
+#           
+#            
+#            sql = self.montar_insert(dados_nfe, 'nota_fiscal')
+#            
+#            cursor.execute(sql[0], sql[1])
             
-            sql = self.montar_insert(dados_nfe, 'nota_fiscal')
+        dd_complementares = self.nota_fiscal.obter_informacoes_complementares()
+        dados_nfe['ds_informacoes_complementares'] = dd_complementares
+        self.insert_invoice_data_in_db(dados_nfe, self.session)
             
-            cursor.execute(sql[0], sql[1])
-            
-            dd_complementares = self.nota_fiscal.obter_informacoes_complementares()
-            
-            if dd_complementares:
-                
-                sql =   'update nota_fiscal                     \
-                        set ds_informacoes_complementares = %s  \
-                        where   cd_uf = %s and                  \
-                                cnpj = %s and                   \
-                                nu_nfce = %s and                \
-                                serie = %s and                  \
-                                cd_modelo = %s'
-            
-                cursor.execute(sql, (dd_complementares,   
-                            dados_nfe['cd_uf'], 
-                            dados_nfe['cnpj'], 
-                            dados_nfe['nu_nfce'],
-                            dados_nfe['serie'],
-                            dados_nfe['cd_modelo'], ))
-            
-        else:
-            
-            print('Nota Fiscal {} serie {} modelo {} Cnpj {} já se encontra na base'.format(
-                                                                                        dados_nfe['nu_nfce'], 
-                                                                                        dados_nfe['serie'], 
-                                                                                        dados_nfe['cd_modelo'], 
-                                                                                        dados_nfe['cnpj']))
-            
-        cursor.close()
+#            if dd_complementares:
+#                
+#                sql =   'update nota_fiscal                     \
+#                        set ds_informacoes_complementares = %s  \
+#                        where   cd_uf = %s and                  \
+#                                cnpj = %s and                   \
+#                                nu_nfce = %s and                \
+#                                serie = %s and                  \
+#                                cd_modelo = %s'
+#            
+#                cursor.execute(sql, (dd_complementares,   
+#                            dados_nfe['cd_uf'], 
+#                            dados_nfe['cnpj'], 
+#                            dados_nfe['nu_nfce'],
+#                            dados_nfe['serie'],
+#                            dados_nfe['cd_modelo'], ))
+#            
+#        else:
+#            
+#            print('Nota Fiscal {} serie {} modelo {} Cnpj {} já se encontra na base'.format(
+#                                                                                        dados_nfe['nu_nfce'], 
+#                                                                                        dados_nfe['serie'], 
+#                                                                                        dados_nfe['cd_modelo'], 
+#                                                                                        dados_nfe['cnpj']))
+#            
+#        cursor.close()
         
     
     def incluir_chaves(self, dict_valores):
@@ -717,6 +1046,11 @@ class NfceBd():
             if chave not in dict_valores.keys():
                 dict_valores[chave] = valor
                 
+                
+    def __include_keys(self, dict_values, invoice_parser):
+        for key,  value in invoice_parser.chaves_nota_fiscal.items():
+            if key not in dict_values.keys():
+                dict_values[key] = value
                 
     def inserir_produtos_servicos_ean(self, produtos_servicos):
         cursor = self.conexao.cursor()
@@ -802,140 +1136,144 @@ class NfceBd():
     
     
     def inserir_emitente(self):
-        cursor = self.conexao.cursor()
+        
+#        cursor = self.conexao.cursor()
         
         dados_emitente = self.nota_fiscal.obter_dados_emitente_2()
+        self.insert_supplier_data_in_db(dados_emitente, self.session)
         
-        sql =   'select cnpj                     \
-                from emitente                    \
-                where   cnpj = %s'
-                        
-        cursor.execute(sql, (   dados_emitente['cnpj'],))
-        cursor.fetchall()
-                                    
-        if cursor.rowcount == 0:
-        
-            sql = self.montar_insert(dados_emitente, 'emitente')
-            
-            cursor.execute(sql[0], sql[1])
-            
-            #self.conexao.commit()
-        else:
-            
-            print('Emitente {} - {} já se encontra na base'.format(  dados_emitente['cnpj'], 
-                                                                dados_emitente['razao_social']))
-            
-        cursor.close()
+#        sql =   'select cnpj                     \
+#                from emitente                    \
+#                where   cnpj = %s'
+#                        
+#        cursor.execute(sql, (   dados_emitente['cnpj'],))
+#        cursor.fetchall()
+#                                    
+#        if cursor.rowcount == 0:
+#        
+#            sql = self.montar_insert(dados_emitente, 'emitente')
+#            
+#            cursor.execute(sql[0], sql[1])
+#            
+#            #self.conexao.commit()
+#        else:
+#            
+#            print('Emitente {} - {} já se encontra na base'.format(  dados_emitente['cnpj'], 
+#                                                                dados_emitente['razao_social']))
+#            
+#        cursor.close()
     
     def inserir_formas_pagamento(self):  
-        cursor = self.conexao.cursor()
+#        cursor = self.conexao.cursor()
         
         dados_formas_pagamento = self.nota_fiscal.obter_dados_cobranca()
-        if dados_formas_pagamento['ds_forma_pagamento']:
-            
-            self.incluir_chaves(dados_formas_pagamento)
-            
-            sql =   'select nu_nfce                     \
-                    from nota_fiscal_formas_pagamento   \
-                    where   cd_uf = %s and              \
-                            cnpj = %s and               \
-                            nu_nfce = %s and            \
-                            serie = %s and              \
-                            cd_modelo = %s'
-                        
-            cursor.execute(sql, (
-                                dados_formas_pagamento['cd_uf'], 
-                                dados_formas_pagamento['cnpj'], 
-                                dados_formas_pagamento['nu_nfce'],
-                                dados_formas_pagamento['serie'],
-                                dados_formas_pagamento['cd_modelo'], ))
-                        
-            
-            cursor.fetchall()
-                                    
-            if cursor.rowcount == 0:
-                
-                sql = self.montar_insert(dados_formas_pagamento, 'nota_fiscal_formas_pagamento')
-                cursor.execute(sql[0], sql[1])
-            
-                #self.conexao.commit()
-        else:
-            print('Nota Fiscal sem dados sobre formas de pagamento')
-        cursor.close()
+        self.put_bill_data_in_db(dados_formas_pagamento, self.session)
+#        if dados_formas_pagamento['ds_forma_pagamento']:
+#            
+#            self.incluir_chaves(dados_formas_pagamento)
+#            
+#            sql =   'select nu_nfce                     \
+#                    from nota_fiscal_formas_pagamento   \
+#                    where   cd_uf = %s and              \
+#                            cnpj = %s and               \
+#                            nu_nfce = %s and            \
+#                            serie = %s and              \
+#                            cd_modelo = %s'
+#                        
+#            cursor.execute(sql, (
+#                                dados_formas_pagamento['cd_uf'], 
+#                                dados_formas_pagamento['cnpj'], 
+#                                dados_formas_pagamento['nu_nfce'],
+#                                dados_formas_pagamento['serie'],
+#                                dados_formas_pagamento['cd_modelo'], ))
+#                        
+#            
+#            cursor.fetchall()
+#                                    
+#            if cursor.rowcount == 0:
+#                
+#                sql = self.montar_insert(dados_formas_pagamento, 'nota_fiscal_formas_pagamento')
+#                cursor.execute(sql[0], sql[1])
+#            
+#                #self.conexao.commit()
+#        else:
+#            print('Nota Fiscal sem dados sobre formas de pagamento')
+#        cursor.close()
         
     def inserir_totais(self):
         
-        cursor = self.conexao.cursor()
+#        cursor = self.conexao.cursor()
         
         totais = self.nota_fiscal.obter_dados_valores_totais()
-        
+        self.insert_total_data_in_db(totais, self.session)
             
-        self.incluir_chaves(totais)
-        
-        sql =   'select nu_nfce                     \
-                from nota_fiscal_totais             \
-                where   cd_uf = %s and              \
-                        cnpj = %s and               \
-                        nu_nfce = %s and            \
-                        serie = %s and              \
-                        cd_modelo = %s'
-                    
-        cursor.execute(sql, (
-                            totais['cd_uf'], 
-                            totais['cnpj'], 
-                            totais['nu_nfce'],
-                            totais['serie'],
-                            totais['cd_modelo'], ))
-                    
-        
-        cursor.fetchall()
-                                
-        if cursor.rowcount == 0:
-            
-            sql = self.montar_insert(totais, 'nota_fiscal_totais')
-            cursor.execute(sql[0], sql[1])
-        
-            #self.conexao.commit()
-        else:
-            print('Nota Fiscal {} serie {} modelo {} Cnpj {} já se encontra em nota_fiscal_totais'.format(
-                                                                                    totais['nu_nfce'], 
-                                                                                    totais['serie'], 
-                                                                                    totais['cd_modelo'], 
-                                                                                    totais['cnpj']))
-        cursor.close()
+#        self.incluir_chaves(totais)
+#        
+#        sql =   'select nu_nfce                     \
+#                from nota_fiscal_totais             \
+#                where   cd_uf = %s and              \
+#                        cnpj = %s and               \
+#                        nu_nfce = %s and            \
+#                        serie = %s and              \
+#                        cd_modelo = %s'
+#                    
+#        cursor.execute(sql, (
+#                            totais['cd_uf'], 
+#                            totais['cnpj'], 
+#                            totais['nu_nfce'],
+#                            totais['serie'],
+#                            totais['cd_modelo'], ))
+#                    
+#        
+#        cursor.fetchall()
+#                                
+#        if cursor.rowcount == 0:
+#            
+#            sql = self.montar_insert(totais, 'nota_fiscal_totais')
+#            cursor.execute(sql[0], sql[1])
+#        
+#            #self.conexao.commit()
+#        else:
+#            print('Nota Fiscal {} serie {} modelo {} Cnpj {} já se encontra em nota_fiscal_totais'.format(
+#                                                                                    totais['nu_nfce'], 
+#                                                                                    totais['serie'], 
+#                                                                                    totais['cd_modelo'], 
+#                                                                                    totais['cnpj']))
+#        cursor.close()
     
     def inserir_transporte(self):    
-        cursor = self.conexao.cursor()
+#        cursor = self.conexao.cursor()
         transporte = self.nota_fiscal.obter_dados_transporte()
         self.incluir_chaves(transporte)
-        sql =   'select nu_nfce                     \
-                    from nota_fiscal_transporte   \
-                    where   cd_uf = %s and              \
-                            cnpj = %s and               \
-                            nu_nfce = %s and            \
-                            serie = %s and              \
-                            cd_modelo = %s'
-                        
-        cursor.execute(sql, (
-                            transporte['cd_uf'], 
-                            transporte['cnpj'], 
-                            transporte['nu_nfce'],
-                            transporte['serie'],
-                            transporte['cd_modelo'], ))
-                    
-        
-        cursor.fetchall()
-                                
-        if cursor.rowcount == 0:
-            
-            sql = self.montar_insert(transporte, 'nota_fiscal_transporte    ')
-            cursor.execute(sql[0], sql[1])
-        
-            #self.conexao.commit()
-        else:
-            print('Dados de Transporte já inseridos na Nota Fiscal {}'.format(transporte['nu_nfce']))
-        
-        cursor.close()
+        self.insert_delivery_data_in_db(transporte, self.session)
+#        sql =   'select nu_nfce                     \
+#                    from nota_fiscal_transporte   \
+#                    where   cd_uf = %s and              \
+#                            cnpj = %s and               \
+#                            nu_nfce = %s and            \
+#                            serie = %s and              \
+#                            cd_modelo = %s'
+#                        
+#        cursor.execute(sql, (
+#                            transporte['cd_uf'], 
+#                            transporte['cnpj'], 
+#                            transporte['nu_nfce'],
+#                            transporte['serie'],
+#                            transporte['cd_modelo'], ))
+#                    
+#        
+#        cursor.fetchall()
+#                                
+#        if cursor.rowcount == 0:
+#            
+#            sql = self.montar_insert(transporte, 'nota_fiscal_transporte    ')
+#            cursor.execute(sql[0], sql[1])
+#        
+#            #self.conexao.commit()
+#        else:
+#            print('Dados de Transporte já inseridos na Nota Fiscal {}'.format(transporte['nu_nfce']))
+#        
+#        cursor.close()
         
     
     def inserir_produtos_servicos(self):
@@ -946,45 +1284,46 @@ class NfceBd():
             
         '''
         
-        cursor = self.conexao.cursor()
+#        cursor = self.conexao.cursor()
         
         #obtem os dados dos produtos na nota fiscal
         produtos_servicos = self.nota_fiscal.obter_dados_produtos_e_servicos()
         
-        self.inserir_produtos_servicos_ean(produtos_servicos) #inseri em produtos_servicos_ean
-        self.inserir_produtos_servicos_sem_gtim(produtos_servicos) #inseri em produtos_servicos_gtim
-        
-        for prod_serv in produtos_servicos:            
+#        self.inserir_produtos_servicos_ean(produtos_servicos) #inseri em produtos_servicos_ean
+#        self.inserir_produtos_servicos_sem_gtim(produtos_servicos) #inseri em produtos_servicos_gtim
+        self.insert_products_data_in_db(produtos_servicos)
+#        for prod_serv in produtos_servicos:     
             
-            self.incluir_chaves(prod_serv)
-            #verifica se já tem o produto na tabela
-            sql =   'select nu_nfce                     \
-                    from produtos_servicos              \
-                    where   cd_uf = %s and              \
-                            cnpj = %s and               \
-                            nu_nfce = %s and            \
-                            serie = %s and              \
-                            cd_modelo = %s and          \
-                            nu_prod_serv = %s'
-                        
-            cursor.execute(sql, (
-                                prod_serv['cd_uf'], 
-                                prod_serv['cnpj'], 
-                                prod_serv['nu_nfce'],
-                                prod_serv['serie'],
-                                prod_serv['cd_modelo'], 
-                                prod_serv['nu_prod_serv'], ))
-                        
             
-            cursor.fetchall()
-                                    
-            if cursor.rowcount == 0:                                            #não tem o produto?
-                
-                sql = self.montar_insert(prod_serv, 'produtos_servicos    ')    
-                cursor.execute(sql[0], sql[1])                                  #inseri o produto
-            
-            else:
-                print('Produto {} já incluido na Nota Fiscal {}'.format(prod_serv['ds_prod_serv'],  prod_serv['nu_nfce']))
+#            self.incluir_chaves(prod_serv)
+#            #verifica se já tem o produto na tabela
+#            sql =   'select nu_nfce                     \
+#                    from produtos_servicos              \
+#                    where   cd_uf = %s and              \
+#                            cnpj = %s and               \
+#                            nu_nfce = %s and            \
+#                            serie = %s and              \
+#                            cd_modelo = %s and          \
+#                            nu_prod_serv = %s'
+#                        
+#            cursor.execute(sql, (
+#                                prod_serv['cd_uf'], 
+#                                prod_serv['cnpj'], 
+#                                prod_serv['nu_nfce'],
+#                                prod_serv['serie'],
+#                                prod_serv['cd_modelo'], 
+#                                prod_serv['nu_prod_serv'], ))
+#                        
+#            
+#            cursor.fetchall()
+#                                    
+#            if cursor.rowcount == 0:                                            #não tem o produto?
+#                
+#                sql = self.montar_insert(prod_serv, 'produtos_servicos    ')    
+#                cursor.execute(sql[0], sql[1])                                  #inseri o produto
+#            
+#            else:
+#                print('Produto {} já incluido na Nota Fiscal {}'.format(prod_serv['ds_prod_serv'],  prod_serv['nu_nfce']))
 
     def criar_conexao(self):
         pass
@@ -1064,6 +1403,8 @@ def obter_texto_labels(dict_labels, tag, aj_texto = False, aj_data = False,  aj_
                     dados[dict_labels[texto_label]] = ajustar_texto(label.next_sibling.get_text())
                 else:
                     dados[dict_labels[texto_label]] = label.next_sibling.get_text()
+                if dict_labels[texto_label][:3] == 'cd_' and not dados[dict_labels[texto_label]]:
+                    dados[dict_labels[texto_label]]  = 0
                 if aj_data:
                     if dict_labels[texto_label][:3] == 'dt_':         #compara os 3 primeiros caracters do campo para saber se é um campo de data.
                         dados[dict_labels[texto_label]] = converter_data(dados[dict_labels[texto_label]])
@@ -1076,8 +1417,20 @@ def obter_texto_labels(dict_labels, tag, aj_texto = False, aj_data = False,  aj_
     else:
         return None
         
+def make_logs_path():
+    '''
+        Verifica a existencia das pastas onde vão ser guardados os logs da aplicação
+    '''
+    log_path = 'data/logs'
+    if os.path.exists('data'):        
+        if not os.path.exists(log_path):            
+            os.mkdir('log_path')
+    else:        
+        os.mkdir('data')
+        os.mkdir(log_path) 
+    return log_path
 
-    
+
 def main_2(nt_fiscal):  
        
     print('*' * 10, 'Dados da Nota Fiscal', '*' * 10)
@@ -1109,9 +1462,9 @@ def main_2(nt_fiscal):
     
 if __name__ == '__main__':
     #arquivo = './nota_fiscal_arquivos/backup/29200513408943000108650010000444531023501903.yang.ping.html'
-    arquivo = 'page_source.html'
-    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
-    main_2(nt_fiscal)
+#    arquivo = 'page_source.html'
+#    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
+#    main_2(nt_fiscal)
     pass
     
 

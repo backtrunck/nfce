@@ -1,12 +1,14 @@
 #sites para verificar o header http://www.rexswain.com
 #testei este: 'https://www.whatismybrowser.com' pelo phantomjs
 #o firefox está com o seguinte header/ User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0 
-import os,  re, csv, io, logging, random, time, datetime
+import os,  re, csv, io, logging, datetime
 import tkinter as tk
 import nfce_db
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import  TimeoutException,\
+                                        NoSuchElementException
 from nfce_scrapper import   open_browser, \
                             open_site, \
                             make_image_file, \
@@ -17,7 +19,8 @@ from tkinter.messagebox import showwarning
 from util import check_gtin, retirar_pontuacao
 from interfaces_graficas import ScrolledText,\
                                 ScrolledTextHandler,\
-                                get_image
+                                get_image,\
+                                show_modal_win
 from PIL import Image, ImageTk
 
 blank_image = 'data/products/blank.png'
@@ -67,12 +70,53 @@ def get_db_products_images():
             logger.info('Código Ean Inválido')
 
     
+def get_others_product_from_html(html):
+    products = []
+    html_soup = BeautifulSoup(html,'lxml')
+    span = html_soup.find('span',{'class':'translation_missing'})
+    if span:
+        tbody = span.parent.parent.parent
+        if tbody.name == 'tbody':            
+            for tr in tbody.findAll('tr'):
+                product = {}
+                for i,td in enumerate(tr.findAll('td')):
+                    if i == 0:
+                        product['cd_ean_produto'] = td.get_text().strip()
+                    elif i == 1:
+                        product['embalagem'] = td.get_text().strip()
+                    elif i == 2:
+                        product['qt_item_embalagem'] = td.get_text().strip()
+                    else:
+                        break
+                products.append(product)
+    return products
+
+
+def update_other_product_db(main_product, other_products, conn):
+    if other_products:
+        for other_product in other_products:
+            if len(other_product['cd_ean_produto']) == 14: 
+                other_product['cd_ean_produto'] = other_product['cd_ean_produto'][1:]
+            if len(other_product['cd_ean_produto']) == 13: #somente GTIN-13
+                if other_product['cd_ean_produto'] != main_product['cd_ean_produto']:
+                    other_product['ds_produto'] = main_product['ds_produto']
+                    other_product['cd_ncm_produto'] = main_product['cd_ncm_produto']
+                    other_product['ds_ncm_produto'] = main_product['ds_ncm_produto']
+                    other_product['cadastrado'] = main_product['cadastrado']
+                    other_product['img_produto'] = main_product['img_produto']
+                    other_product['img_barcode'] = main_product['img_barcode']
+                    other_product['cd_ean_interno'] = main_product['cd_ean_produto']
+                    if not get_product_from_db(conn, other_product['cd_ean_produto']): #se não achar o produto na base                    
+                        insert_product_db(conn, other_product)
+                    else:                    
+                        update_product_db(conn, other_product)
+
+
 def get_product_from_net(drive, product_code, logger):
     
-    wait_time = random.uniform(1, 7) #pega um numero aleatório de segundos
-    html_result = search_product(drive, product_code, logger, wait_time=wait_time)   #executa o pesquisar da página        
+    html_result = search_product(drive, product_code, logger)   #executa o pesquisar da página        
     if html_result:
-        product_data = get_data_from_html(drive.page_source, product_code) #pega os dados no html de retorno        
+        product_data = get_data_from_html(drive, product_code) #pega os dados no html de retorno        
         if product_data: #trouxe resultado?     
             logger.info('Grava Produto {} no csv'.format(product_code))
             with open(csv_products_file, 'a') as file:
@@ -136,11 +180,22 @@ def search_button(win):
                 win.bt2.configure(image= win.bt2.image )
                 win.entry_produto.delete(0, 'end')                
                 product_included = get_product_from_csv(product_code) #produto no csv?                
-                if not product_included:    #se não estiver
-                    search_product(win.drive, product_code, win.logger)   #executa o pesquisar da página    
-                    product_data = get_data_from_html(win.drive.page_source, product_code) #pega os dados no html de retorno                    
-                    if product_data: #trouxe resultado?                        
-                        win.entry_produto.insert(0, product_data['ds_produto'])  #coloca a descrição do produto na tela
+                html_source = search_product(win.drive, product_code, win.logger)   #executa o pesquisar da página 
+                if not is_found_product(html_source):
+                    showwarning(title,'Produto {} não encontrado'.format(product_code))
+                    return
+                try:
+                    win.logger.info('Aguardando o download completo da página')
+                    WebDriverWait(win.drive, 120).until(
+                        EC.visibility_of_element_located((By.ID, 'barcode'))) #verifica se a imagem do barcode foi baixada
+                except TimeoutException:        
+                    win.logger.warning('tempo excessivo para o download completo da página')
+                    return
+                win.logger.info('Download finalizado!')
+                product_data = get_data_from_html(win.drive, product_code) #pega os dados no html de retorno                    
+                if product_data: #trouxe resultado?                        
+                    win.entry_produto.insert(0, product_data['ds_produto'])  #coloca a descrição do produto na tela
+                    if not product_included:    #se não estiver no csv, inclui
                         win.logger.info('Incluindo no CSV... ')                        
                         with open(csv_products_file, 'a') as file:            
                             csvWriter = csv.writer(file, quoting = csv.QUOTE_ALL, delimiter = ';')
@@ -149,35 +204,42 @@ def search_button(win):
                                                 product_data['cd_ncm_produto'],
                                                 product_data['ds_ncm_produto'],
                                                 product_data['cadastrado']])                        
-                        win.logger.info('ok')                        
-                        try:
-                            filename = make_image_file(product_data['product_img_uri'],
-                                        product_data['cd_ean_produto'] + '.image', main_url=bluesoft_site)
-                            change_image(win.bt1, filename)   
-                        
-                            win.logger.info('Gravou Imagem Produto "{}"'.format(product_data['product_img_uri']))
-                        except Exception as e:
-                            win.logger.error('"{}" gravando imagem do prod. {} - de "{}"'.format(
-                                    e, product_data['cd_ean_produto'], product_data['product_img_uri']))  
-                        try:
-                            filename = make_image_file(product_data['barcode_uri'],
-                                            product_data['cd_ean_produto'] + '.barcode', main_url=bluesoft_site)                        
-                            change_image(win.bt2, filename)                         
-                            win.logger.info('Gravou código barras Produto "{}"'.format(product_data['cd_ean_produto']))
-                        except Exception as e:
-                                win.logger.error('Erro "{}" ao gravar cd de barras do produto {}'.format(
-                                         e, product_data['cd_ean_produto']))
-                        win.logger.info('Finalizado')   
+                        win.logger.info('ok')   
+                    
+                    try:
+                        file_image = make_image_file(product_data['product_img_uri'],
+                                    product_data['cd_ean_produto'] + '.image', main_url=bluesoft_site)
+                        change_image(win.bt1, file_image)  
+                        product_img = get_image_file(filename = file_image)
+                        product_data['img_produto'] = product_img
+                        win.logger.info('Gravou Imagem Produto "{}" em "{}"'.format(product_data['product_img_uri'], file_image))
+                    except Exception as e:
+                        win.logger.error('"{}" gravando imagem do prod. {} - de "{}"'.format(
+                                e, product_data['cd_ean_produto'], product_data['product_img_uri']))  
+                    try:
+                        barcode_image = make_image_file(product_data['barcode_uri'],
+                                        product_data['cd_ean_produto'] + '.barcode', main_url=bluesoft_site)                        
+                        change_image(win.bt2, barcode_image)
+                        product_barcode_img = get_image_file(filename = barcode_image)
+                        product_data['img_barcode'] = product_barcode_img        
+                        win.logger.info('Gravou código barras Produto "{}" em "{}"'.format(product_data['cd_ean_produto'], barcode_image))
+                    except Exception as e:
+                            win.logger.error('Erro "{}" ao gravar cd de barras do produto {}'.format(
+                                     e, product_data['cd_ean_produto']))
+                    db_connection = nfce_db.get_engine_bd().connect()    
+                    if not get_product_from_db(db_connection, product_data['cd_ean_produto']): #se não achar o produto na base
+                        insert_product_db(db_connection, product_data)
                     else:
-                        showwarning(title,'Produto {} não encontrado'.format(product_code))
-                else:                    
-                    showwarning(title,'{} - Produto {}, já foi importado'.format(product_included[0], product_included[1]))
+                        update_product_db(db_connection, product_data)
+                    other_products_data = get_others_product_from_html(win.drive.page_source)
+                    update_other_product_db(product_data, other_products_data, db_connection)
+                    win.logger.info('Finalizado')   
+                else:
+                    showwarning(title,'Produto {} não encontrado'.format(product_code))
             else:                
                 showwarning(title,'Código GTIM inválido: {}'.format(product_code))    
         else:
             showwarning(title,'Informe o Código EAN do Produto')
-            
-        
         
     except Exception as e:
         win.logger.info('Erro -> {}'.format(e))
@@ -235,8 +297,12 @@ def make_window(master=None):
     win.site = bluesoft_site
     win.drive = None
     win.browser_type = 'phanton'
-    win.after(20, (lambda w=win :initialize(w)))    
-    win.mainloop()
+    win.browser_type = 'firefox'
+    win.after(20, (lambda w=win :initialize(w)))
+    if master: 
+       show_modal_win(win)
+    else:
+        win.mainloop()
     win.drive.close()
 
 
@@ -256,41 +322,77 @@ def make_logger(scrolled_text):
         st.setFormatter(formatter)
         logger.addHandler(st)
         
-        return logger 
-        
-    
+        return logger    
     
 
-def get_data_from_html(html, product_code):
-    
+def is_found_product(html_source):
+    if html_source:
+        html_soup = BeautifulSoup(html_source,'lxml') 
+        if 'c_products' in html_soup.body['class']:
+            return True
+    return False
+
+
+def get_data_from_html(driver, product_code):
+    DESC_NAO_ENCONTRADA = 'descrição não encontrada'
+    html = driver.page_source
     product_data = {}    
-    html_soup = BeautifulSoup(html,'lxml')    
-    #verifica se o codigo foi encontrado
-    search_result_1 = html_soup.title.text.startswith(product_code) #titulo da pg começa com o codigo   
-    serach_result_2 = product_code[:12] not in html_soup.title.text #titulo não contém o codigo sem digito
-    if not (search_result_1 or serach_result_2): #caso seja encontrado.
-        product_img_tag = html_soup.find('img', {'title':re.compile('^' + product_code)})        
-        if product_img_tag:            
-            data_text = product_img_tag.get('alt').split('-')
-            desc_product = data_text[1].strip()
+    html_soup = BeautifulSoup(html,'lxml') 
+    if not html_soup.body['class'] == 'c_products': #caso seja encontrado.
+        span = html_soup.find('span', {'id':'product_description'})
+        if span:
+            desc_product = span.get_text().strip()
+        else:
+           desc_product = DESC_NAO_ENCONTRADA
+        
+        span = html_soup.find('span', {'id':'product_gtin'})
+        if span:
+            if product_code.strip() != span.get_text().strip():
+                product_code = span.get_text().strip()
+        
+        #product_img_tag = html_soup.find('img', {'title':re.compile('^' + product_code)})        
+        #if product_img_tag:            
+        #    data_text = product_img_tag.get('alt').split('-', 1)
+        #    desc_product = data_text[1].strip()
+        #else:
+          
         ncm_tag = html_soup.find('span', {'class':'description ncm-name label-figura-fiscal'})        
         if ncm_tag.a:            
             data_text = ncm_tag.a.text.strip()
             code_ncm , desc_ncm = data_text.split('-', 1)            
         else:
             #codigos ncm não encontrados
-            code_ncm = '0000.00.00'
+            code_ncm = '00000000'
             desc_ncm = 'sem codigo ncm'
-        barcode_tag = html_soup.find('img',{'id':'barcode'})        
-        if barcode_tag:            
-            barcode_uri = barcode_tag['src']        
+        #barcode_tag = html_soup.find('img',{'id':'barcode'})
+        try:
+            #usando BeutifulSoup o 'src' da tag 'img', ora aparecia ora não, usando Selenium
+            barcode_tag = driver.find_element_by_id('barcode') 
+        except NoSuchElementException:
+            barcode_tag = None
+            barcode_uri = None
+        else:
+            barcode_uri = barcode_tag.get_attribute('src')
+               
         product_img_tag = html_soup.find('img', {'title':re.compile('^' + product_code)})        
         if product_img_tag:            
             product_img_uri = product_img_tag['src']        
+        else:
+            #não encontrou a imagem pelo código. Alguns produtos estão com códigos errados na imagem
+            if desc_product != DESC_NAO_ENCONTRADA:
+                product_img_tag = html_soup.find('img', {'title':re.compile(desc_product + '$')}) 
+                if product_img_tag:            
+                    product_img_uri = product_img_tag['src']
+                
+        if not product_img_tag:
+            product_img_uri = None
+            
         #preenche os dados capturados do produto na pagina html
         product_data['cd_ean_produto'] = product_code
+        product_data['cd_ean_interno'] = product_code
+        product_data['qt_item_embalagem'] = 1
         product_data['ds_produto'] = desc_product
-        product_data['cd_ncm_produto'] = code_ncm.strip()
+        product_data['cd_ncm_produto'] = retirar_pontuacao(code_ncm.strip())
         product_data['ds_ncm_produto'] = desc_ncm.strip()
         product_data['barcode_uri'] = barcode_uri 
         product_data['product_img_uri'] = product_img_uri
@@ -370,6 +472,8 @@ def data_base_update():
                 if row:
                     #põe os dados do produto no dicionario dict_values_product
                     dict_values_product['cd_ean_produto'] = row[0]
+                    dict_values_product['cd_ean_interno'] = row[0]
+                    dict_values_product['qt_item_embalagem'] = 1
                     dict_values_product['ds_produto'] = row[1]
                     dict_values_product['cd_ncm_produto'] = retirar_pontuacao(row[2])                    
                     product_img = get_image_file(filename = row[0] + '.image')
@@ -384,31 +488,34 @@ def data_base_update():
                         update_product_db(db_connection, dict_values_product)
 
     
-def get_image_file(filename) :    
-    file_path = 'data/products/' + filename
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, 'rb') as f:
-                return f.read()
-        
-        except Exception as e:
-            print(e)
+def get_image_file(filename) :  
+    if filename:  
+        file_base_name =  os.path.basename(filename)
+        file_path = 'data/products/' + file_base_name
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'rb') as f:
+                    return f.read()
+            
+            except Exception as e:
+                print(e)
             
     return None
     
     
-def search_product(drive, product_code, logger, wait_time=0):    
+def search_product(drive, product_code, logger):    
     search_box =  drive.find_element_by_id('search-input')
     search_box.clear()
     search_box.send_keys(product_code)
-    if wait_time:#espera um tempo antes de submeter o form
-        logger.info('Waiting {} seconds'.format(wait_time))
-        time.sleep(wait_time)
     logger.info('baixando resultado da pesquisa')
     search_box.submit()
     try:
-        WebDriverWait(drive, 10).until(
-            EC.title_contains(product_code[:12])) #verifica codigo sem digito verificador no titulo
+        WebDriverWait(drive, 60).until(
+            EC.presence_of_element_located((By.XPATH, "//*[@class='c_products a_show' or @class='c_search a_find']")))
+            #EC.presence_of_element_located((By.CLASS_NAME, 'c_products'))) 
+            #driver.find_elements_by_xpath("//*[@class='XELVh selectable-text invisible-space copyable-text']")
+            
+            #EC.title_contains(product_code[:12])) #verifica codigo sem digito verificador no titulo
     except TimeoutException:        
         logger.warning('time-out na pesquisa do produto')
         return ''
@@ -423,13 +530,17 @@ def insert_product_db(db_connection, data_product, dict_types_field={}):
                                     cd_ncm_produto,
                                     img_produto,
                                     img_barcode,
-                                    cadastrado)
+                                    cadastrado,
+                                    cd_ean_interno,
+                                    qt_item_embalagem)
                         values( :cd_ean_produto,
                                 :ds_produto,
                                 :cd_ncm_produto,
                                 :img_produto,
                                 :img_barcode,
-                                :cadastrado)
+                                :cadastrado,
+                                :cd_ean_interno,
+                                :qt_item_embalagem)
             '''
                                     
     nfce_db.execute_sql(db_connection, sql, data_product, dict_types_field)
@@ -438,14 +549,16 @@ def insert_product_db(db_connection, data_product, dict_types_field={}):
 def update_product_db(db_connection, data_product, dict_types_field={}):    
     sql =   '''update produtos_gtin 
                     set
-                        ds_produto      = :ds_produto,
                         cd_ncm_produto  = :cd_ncm_produto,
                         img_produto     = :img_produto,
                         img_barcode     = :img_barcode,
-                        cadastrado      = :cadastrado
+                        cadastrado      = :cadastrado,
+                        cd_ean_interno  = :cd_ean_interno,
+                        qt_item_embalagem = :qt_item_embalagem
                     where
                         cd_ean_produto  = :cd_ean_produto
             '''                        
+    #ds_produto      = :ds_produto,
     nfce_db.execute_sql(db_connection, sql, data_product, dict_types_field)
 
 
@@ -488,7 +601,7 @@ def products_images_search(master=None):
     engine = nfce_db.get_engine_bd()    
     db_connection = engine.connect()    
     if master: 
-       win = tk.Toplevel(master)
+       win = tk.Toplevel(master)       
     else:
         win = tk.Tk()
     
@@ -510,30 +623,22 @@ def products_images_search(master=None):
     frm = tk.Frame(win)
     frm.pack(fill=tk.X)    
     
-#    img = Image.open(io.BytesIO(result['img_produto']))
-#    img = img.resize((200, 200), Image.ANTIALIAS)
-#    photo_product = ImageTk.PhotoImage(img)    
-#    img = Image.open(io.BytesIO(result['img_barcode']))
-#    img = img.resize((200, 200), Image.ANTIALIAS)
-#    photo_barcode = ImageTk.PhotoImage(img)    
-    
-    #win.bt1 = tk.Button(frm, image=photo_product)
-    
     win.bt1 = tk.Button(frm)
     win.bt1.image = None      
     change_image(win.bt1, '')
     
     win.bt1.grid(row=2, column=0, sticky='ew', padx=padx, pady=pady)    
-    
-    #win.bt2 = tk.Button(frm, image=photo_barcode)
+
     win.bt2 = tk.Button(frm)
     win.bt2.image = None
     change_image(win.bt2, '')
-    #win.bt2.image = photo_barcode
     win.bt2.grid(row=2, column=1, sticky='ew', padx=padx, pady=pady)  
     
-    win.eval('tk::PlaceWindow %s center' % win.winfo_pathname(win.winfo_id()))    
-    win.mainloop()
+    if master:
+        show_modal_win(win)
+    else:
+        win.eval('tk::PlaceWindow %s center' % win.winfo_pathname(win.winfo_id()))    
+        win.mainloop()
    
     
 def main():
@@ -541,7 +646,7 @@ def main():
 #    return
 #    products_images_search()
 #    return
-#    result = data_base_update()
+#  result = data_base_update()
 #    return
     make_window()
     

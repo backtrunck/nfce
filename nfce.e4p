@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project nfce -->
-<!-- Saved: 2020-05-13, 22:24:47 -->
+<!-- Saved: 2020-06-07, 23:55:30 -->
 <!-- Copyright (C) 2020 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -28,10 +28,12 @@
     <Source>main.py</Source>
     <Source>nfce.py</Source>
     <Source>nfce_db.py</Source>
+    <Source>nfce_estoque.py</Source>
     <Source>nfce_gui.py</Source>
     <Source>nfce_models.py</Source>
     <Source>nfce_produtos.py</Source>
     <Source>nfce_scrapper.py</Source>
+    <Source>nfce_testes.py</Source>
     <Source>product_scraper.py</Source>
     <Source>util/__init__.py</Source>
     <Source>util/terminal.py</Source>

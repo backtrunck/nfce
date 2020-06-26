@@ -9,7 +9,13 @@ meta_data = MetaData(engine)
 emitente = Table('emitente', meta_data, autoload=True, autoload_with=engine)
 nota_fiscal = Table('nota_fiscal', meta_data, autoload=True, autoload_with=engine)
 
-    
+class Produtos(object):
+    def __repr__(self):
+        if self.classificado:
+                return f'<Produto {self.id_produto} - {self.ds_produto} / Classificado>'.format(self.razao_social)
+        else:
+                return f'<Produto {self.id_produto} - {self.ds_produto} / Não Classificado>'.format(self.razao_social)
+
 class Emitente(object):
     def __repr__(self):
         return '<Razão Social {}>'.format(self.razao_social)
@@ -80,7 +86,18 @@ class NotaFiscal(object):
                         self.dt_emissao,\
                         self.cnpj,
                         self.vl_total)
-        
+products_t = Table('produtos', meta_data, autoload=True, autoload_with=engine)
+products_gtin_t = Table('produtos_gtin', meta_data, autoload=True, autoload_with=engine)
+products_sem_gtin_products_t = Table('produtos_x_prod_serv_sem_gtin', meta_data, autoload=True, autoload_with=engine)
+products_gtin_products_t = Table('produtos_x_produtos_gtin', meta_data, autoload=True, autoload_with=engine)
+classe_produto_t = Table('classe_produto', meta_data, autoload=True, autoload_with=engine)
+
+products_gtin_products_v = Table('produtos_gtin_produtos_v', meta_data, autoload=True, autoload_with=engine)
+products_sem_gtin_products_v = Table('produtos_sem_gtin_x_produtos_v', meta_data, autoload=True, autoload_with=engine)
+
+products_exit_t = Table('saida_produtos', meta_data, autoload=True, autoload_with=engine)
+products_exit_v = Table('saida_produtos_v', meta_data, autoload=True, autoload_with=engine)
+
 mapper(Emitente, emitente)
 mapper(NotaFiscal, nota_fiscal)
 mapper(NotaFiscalFormaPagamento, Table('nota_fiscal_formas_pagamento', meta_data, autoload=True, autoload_with=engine))
@@ -88,13 +105,14 @@ mapper(NotaFiscalTotais, Table('nota_fiscal_totais', meta_data, autoload=True, a
 mapper(NotaFiscalTransporte, Table('nota_fiscal_transporte', meta_data, autoload=True, autoload_with=engine))
 mapper(ProdutoServico, Table('produtos_servicos', meta_data, autoload=True, autoload_with=engine))
 mapper(ProdutoGtin, Table('produtos_gtin', meta_data, autoload=True, autoload_with=engine))
-mapper(ProdutosProdServSemGtin, Table('produtos_x_prod_serv_sem_gtin', meta_data, autoload=True, autoload_with=engine))
+mapper(ProdutosProdServSemGtin, products_sem_gtin_products_t)
 mapper(ProdutosNcm, Table('produtos_x_ncm_05', meta_data, autoload=True, autoload_with=engine))
-mapper(ProdutoProdutoGtin, Table('produtos_x_produtos_gtin', meta_data, autoload=True, autoload_with=engine))
+mapper(ProdutoProdutoGtin, products_gtin_products_t)
+mapper(Produtos, products_t)
 
 
-Session = sessionmaker(bind=engine)
-engine.echo=True
+Session = sessionmaker(bind=engine, autoflush=True)
+engine.echo=False
 
 
 if __name__ == '__main__':
