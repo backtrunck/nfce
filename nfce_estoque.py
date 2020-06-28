@@ -1,6 +1,6 @@
 import datetime
 import tkinter as tk
-from tkinter.messagebox import showwarning
+from tkinter.messagebox import showwarning, askokcancel
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from util import string_to_date, formatar_data, is_valid_date
 from nfce_models import engine, products_exit_t, products_exit_v, products_gtin_t, classe_produto_t
@@ -695,6 +695,10 @@ class FrameGrid01(tk.Frame):
         self.form = tk.Frame(self)
         self.form.pack(fill=tk.X)
         
+        self.frame_header = tk.Frame(self)
+        self.frame_header.pack(fill=tk.X)
+        
+        
         f = tk.Frame(self)
         f.pack(fill=tk.X)
         scroll = ScrolledWindow(f, canv_w=450, canv_h = 200, scroll_h = False)
@@ -705,114 +709,19 @@ class FrameGrid01(tk.Frame):
         f = tk.Frame(self)
         f.pack(fill=tk.X)
         tk.Button(f, text='Fechar', width = 10, command=self.close).pack(side=tk.RIGHT, padx=2, pady=5)
-        tk.Button(f, text='Salvar', width = 10, command=self.update_row).pack(side=tk.RIGHT, padx=2, pady=5)
-        tk.Button(f, text='Novo', width = 10, command=self.new_product).pack(side=tk.RIGHT, padx=2, pady=5)
-        
+        tk.Button(f, text='Salvar', width = 10, command=self.update).pack(side=tk.RIGHT, padx=2, pady=5)
+        tk.Button(f, text='Apagar', width = 10, command=self.delete).pack(side=tk.RIGHT, padx=2, pady=5)
+        tk.Button(f, text='Novo', width = 10, command=self.new).pack(side=tk.RIGHT, padx=2, pady=5)
 
 
     def add_widget(self, name_widget, widget):
         self.controls[name_widget] = widget
 
-
-    def get_widget(self, name_widget):
-        return name_widget
     
-
-    def get_form_data(self):
-        datum = {}
-        for key in self.controls.keys():
-            form_widget = self.controls[key]
-            if type(form_widget) == tk.Entry:
-                datum[key] = form_widget.get().strip()
-            elif type(form_widget) == tk.Label:
-                datum[key] = form_widget['text'].strip()
-        return(datum)
-
-
-    def get_form_keys(self):
-        datum = {}
-        for key in self.controls.keys():
-            column = self.data_table.c[key]
-            widget = self.controls[key]
-            if column.primary_key:
-                datum[key]  = self.get_widget_data(widget)
-        return datum
-
-    def order_by(self, list_order):
-        self.grid_select_stm = self.grid_select_stm.order_by(list_order)
-
-
-    def get_grid_dbdata(self):
-        result_proxy = self.conn.execute(self.grid_select_stm) 
-        self.fill_grid(result_proxy.fetchall())
-
-   
-    def close(self):
-        '''Fecha a janela'''
-        self.master.destroy()
-    
-    
-    def row_click(self, event):
-        '''
-            Disparado ao clicar no grid
-            Pega os dados do grid e põe no form
-        '''
-        self.last_clicked_row = event.widget.grid_info()['row']     #pega o numero da linha clicada
-        self.set_form_data(self.get_grid_data(int(event.widget.grid_info()['row'])))
-
-
-    def new_product(self):
-        '''
-            Limpa o form e ajusta a última linha clicada para -1
-        '''
-        self.last_clicked_row = -1
-        self.clear_form()
-
-
-    def clear_form(self):
-        for key in self.controls.keys():
-            form_widget = self.controls[key]
-            self.set_widget_data(form_widget, '')
-
-
-    def get_ds_product(self, cd_ean):
-        if not cd_ean or len(cd_ean) != 13:
-            return ''        
-        try:
-            stm = select([products_gtin_t.c.ds_produto]).where(products_gtin_t.c.cd_ean_produto == cd_ean)
-            result_proxy = self.conn.execute(stm) 
-        except Exception as e:
-            showwarning('Saídas','Erro "{}" ao Verificar Gtin {}'.format(e, cd_ean))
-            return ''
-        if result_proxy.rowcount == 1:
-            row = result_proxy.fetchone()
-            return row['ds_produto']
-        return ''
-
-
-    def convert_data_to_bd(self, data):
-        datum={}
-        for key in data.keys():
-            col = self.data_table.c.get(key)
-            if col.type._type_affinity in [sqltypes.Date, sqltypes.DateTime]:
-                if not is_valid_date(data[key]):
-                    datum[key] = None
-                datum[key] = string_to_date(data[key])
-            elif col.type._type_affinity in [sqltypes.Integer]:
-                try: 
-                    datum[key] = int(data[key])
-                except ValueError:
-                    datum[key] = None
-            elif col.type._type_affinity in [sqltypes.Float, sqltypes.Numeric]:
-                datum[key] = data[key]
-            elif col.type._type_affinity in [sqltypes.String]:
-                datum[key] = data[key]
-            else:
-                raise(Exception(f'Tipo do campo tratado: {col.type._type_affinity}'))
-        return datum
-
-
     def check_form_for_update(self, insert=False):
+        '''
+            Verifica se os dados do formulário estão aptos a serem salvos, conforme a configurção dos campos do banco de dados
+        '''
         
         for key in self.controls.keys():
             col = self.data_table.c.get(key)
@@ -821,118 +730,337 @@ class FrameGrid01(tk.Frame):
             if (not col.nullable and not data and not insert) or (insert and not col.nullable and not data and not col.autoincrement):
                 return (key, 'null')
             elif col.type._type_affinity in [sqltypes.Date, sqltypes.DateTime]:
-                if not is_valid_date(data):
-                    return(key, 'invalid_data')
+                if data:                    
+                    if not is_valid_date(data):
+                        return(key, 'invalid_data')
             elif col.type._type_affinity in [sqltypes.Integer]:
-                try: 
-                    int(data)
-                except ValueError:
-                    return(key, 'invalid_data')
+                if data:                    
+                    try: 
+                        int(data)
+                    except ValueError:
+                        return(key, 'invalid_data')
             elif col.type._type_affinity in [sqltypes.Float, sqltypes.Numeric]:
+                if data:
+                    pass
                 print(key, 'numérico(float)')
             elif col.type._type_affinity in [sqltypes.String]:
+                if not data:
+                    pass
                 print(key, 'string')
             else:
                 raise(Exception(f'Tipo do campo tratado: {col.type._type_affinity}'))
         return('', '')
 
 
-    def insert(self):
-        return False
+    def clear_form(self):
+        for key in self.controls.keys():
+            form_widget = self.controls[key]
+            self.set_widget_data(form_widget, '')
 
 
-    def update(self):
-        '''
-            Atualiza o banco de dados com os dados do form
-        '''   
-        try:
-            if self.last_clicked_row == -1:
-                result = self.check_form_for_update(insert=True)
-            else:
-                result = self.check_form_for_update(insert=False)
+    def clear_grid(self): 
+        ''' Limpa o grid'''
+        
+        for widget in self.scrolled_frame.grid_slaves():
             
-            if not result[0]:
-                if self.last_clicked_row == -1:
-                    return
-                form_data = self.convert_data_to_bd(self.get_form_data())                
-                form_keys = self.convert_data_to_bd(self.get_form_keys())
-                updt = self.data_table.update()
-                for key in form_keys:
-                    updt = updt.where(self.data_table.c[key] == form_keys[key])
-                updt = updt.values(**form_data)
-                self.conn.execute(updt)
+            if int(widget.grid_info()['row']) > 1:
                 
-                return 0
+                widget.grid_forget()
+
+
+    def clear_grid_line(self, row):
+        qt_cols = len(self.controls.keys())
+        for i, key in enumerate(reversed(self.controls.keys())):
+            index = (self.last_inserted_row - (row))*len(self.controls.keys())-len(self.controls.keys())
+            widget = self.scrolled_frame.grid_slaves()[index + (qt_cols + i)]
+            self.set_widget_data(widget, '')
+
+
+    def close(self):
+        '''Fecha a janela'''
+        self.master.destroy()
+    
+
+    def convert_data_to_bd(self, data):
+        datum={}
+        for key in data.keys():
+            col = self.data_table.c.get(key)
+            if col.type._type_affinity in [sqltypes.Date, sqltypes.DateTime]:
+                if is_valid_date(data[key]):
+                    datum[key] = string_to_date(data[key])
+                else:
+                    datum[key] = None
+            elif col.type._type_affinity in [sqltypes.Integer]:
+                try: 
+                    datum[key] = int(data[key])
+                except ValueError:
+                    datum[key] = None
+            elif col.type._type_affinity in [sqltypes.Float, sqltypes.Numeric]:
+                try:
+                    datum[key] = float(data[key])
+                except ValueError:
+                    datum[key] = None
+            elif col.type._type_affinity in [sqltypes.String]:
+                datum[key] = data[key]
+            else:
+                raise(Exception(f'Tipo do campo tratado: {col.type._type_affinity}'))
+        return datum
+
+    
+    def create_row_header(self, header=[], **kargs):
+        
+        for col, key in enumerate(self.controls.keys()):
+            try:
+                value = header[col]
+            except IndexError:
+                value = key        
+            e = tk.Label(self.frame_header,text=value, width=self.controls[key]['width'])
+            e.grid(row = 0,column=col, sticky=tk.W)
+
+
+    def create_row_widget(self, widget_class=None, widget_name='',value='', row=0, column=0, width=11, **kargs):
+        e = widget_class(self.scrolled_frame,width=width, readonlybackground='white', **kargs)
+        e.grid(row = row,column=column)
+        if value is None:
+            value = ''
+        e.insert(0, value)
+        e.name = widget_name
+        e.bind("<Key>", lambda a: "break")
+        e.bind('<ButtonRelease>', self.row_click)
+        e.config(state='readonly')
+
+    
+    def delete(self):
+        '''
+            Apaga a linha atual do grid e a correspondente do banco de dados 
+        '''
+        if self.last_clicked_row != -1:                     #se tiver um linha atual
+            if not askokcancel('Delete', 'Confirme a Operação'):
+                return
+            grid_keys = self.get_grid_keys(self.last_clicked_row)
+            dlt = self.data_table.delete()
+            for key in grid_keys:
+                dlt = dlt.where(self.data_table.c[key] == grid_keys[key])
+            self.conn.execute(dlt)
+            self.forget_grid_line(self.last_clicked_row)            #apaga a linha do grid
+            self.last_clicked_row = self.get_grid_next_line(self.last_clicked_row) #pega a próxima linha
+            self.last_inserted_row -= 1                                #diminui quantidade de linhas
+            datum = self.get_grid_data_3(self.last_clicked_row)     #pega os dados da linha atual do grid
+            self.set_form_data(datum)                               #põe os dados atuais no formulário
+
+
+    def forget_grid_line(self, row):
+        '''
+            Apaga a linha (row) do grid
+        '''
+        #pega os widgets da linha (row)
+        widgets = [widget for widget in self.scrolled_frame.grid_slaves() if widget.grid_info()['row'] == row]
+        for widget in widgets:
+            widget.grid_forget()        #apaga o widget
+
+
+    
+    def insert(self):
+        '''
+            Insere os dados do formulário no banco de dados
+        '''
+        try:
+            transaction = self.conn.begin()
+            form_data = self.convert_data_to_bd(self.get_form_data())
+            form_data = self.get_auto_increment_values(form_data)
+            ins = classe_produto_t.insert().values(**form_data)
+            self.conn.execute(ins)
+            transaction.commit()
+            self.last_inserted_row +=1           
+            result = self.get_form_dbdata(form_data)
+            self.fill_row(self.last_inserted_row, result)
+            self.last_clicked_row = self.last_inserted_row
+            self.set_form_data(self.get_grid_data(self.last_clicked_row))
         except Exception as e:
-            print(e)
+            print(f'Error: {e}')
             return -1
             
-            if self.last_clicked_row == -1:
-                self.insert()
+        return 0
+
+
+    def fill_grid(self, data_rows):
+        '''
+            Preenche um grid a partir de um data_rows passado
+        '''
+        #limpa o grid
+        self.clear_grid()
+        
+        #para cada linha retornada em data_rows
+        for row, data_row in enumerate(data_rows, 1):
+            self.fill_row(row, data_row)
+        self.last_inserted_row = row
+
+
+    def fill_row(self, row, data_row):
+        '''
+            Criar os widgets do grid a partir dos controles do form(self.controls) e já preeche os dados nele
+        '''
+        for col, key in enumerate(self.controls.keys()):
+            self.create_row_widget(widget_class=tk.Entry, widget_name=key, value=data_row[key], 
+                                    row=row, column=col, width=self.controls[key]['width'])
+
+
+    def get_auto_increment_values(self, data):
+        '''
+            Obtem os dados dos campos autoincrement do formulário
+        '''
+        datum = {}
+        for key in data.keys():
+            if self.data_table.c.get(key).autoincrement == True:
+                result = self.conn.execute(f'select auto_increment from information_schema.tables where table_name = "{self.data_table.name}" LOCK IN SHARE MODE ')
+                datum[key] = result.fetchone()[0]
             else:
-                pass
-            try:
-                insert = False
-                if self.last_clicked_row == -1:
-                    insert = True                
-                if not self.cd_ean_produto.get() or\
-                   not self.ds_produto.get() or\
-                   not self.cd_ean_interno.get() or \
-                   not self.cd_ncm_produto.get() or \
-                   not self.qt_item_embalagem.get():
-                    showwarning('Produto Gtin','O Gtin, descrição,Gtin Interno, NCM e Quantidade da embalagem devem ser informados')
-                    return -1
-                
-                try: 
-                    qt_saida = int(self.qt_item_embalagem.get())
-                except ValueError:
-                    showwarning('Produto Gtin','Quantidade inválida')
-                    return -1
-                
-                if insert:
-                    ins = products_gtin_t.insert().values(cd_ean_produto=self.cd_ean_produto.get(),\
-                                                          ds_produto=self.ds_produto.get(), 
-                                                          cd_ean_interno=self.cd_ean_interno.get(), 
-                                                          cd_ncm_produto=self.cd_ncm_produto.get(), 
-                                                          qt_item_embalagem=qt_saida)
-                    #result = self.conn.execute(ins)
-                    self.conn.execute(ins)
-                    self.last_inserted_row +=1
-                    self.fill_row(self.last_inserted_row, 
-                                  {
-                                   'cd_ean_produto':self.cd_ean_produto.get(),
-                                   'ds_produto':self.ds_produto.get(),
-                                   'cd_ean_interno':self.cd_ean_interno.get(),
-                                   'cd_ncm_produto':self.cd_ncm_produto.get(),
-                                   'dt_criacao':datetime.datetime.now(), 
-                                   'qt_item_embalagem':self.qt_item_embalagem.get()})
-                    self.last_clicked_row = self.last_inserted_row
-                    self.cd_ean_produto.config(state='readonly')                
-                    self.dt_criacao.config(text=formatar_data(datetime.datetime.now() ,'%d/%m/%Y'), anchor='w')
-                    return 0
-                else:
-                    upd = products_gtin_t.update().where(\
-                                products_gtin_t.c.cd_ean_produto==self.cd_ean_produto.get()).\
-                                values(cd_ean_interno=self.cd_ean_interno.get(),\
-                                       ds_produto=self.ds_produto.get(), 
-                                       cd_ncm_produto=self.cd_ncm_produto.get(), 
-                                       qt_item_embalagem=qt_saida )
-                    self.conn.execute(upd)
-                    return 0
-            except Exception as e:
-                showwarning('Inserir Produto',e)
-                return -1
+                datum[key] = data[key]
+        return datum
 
 
-    def update_row(self):
+    def get_form_data(self):
         '''
-            Atualiza o banco de dados com os dados do form e atualiza o grid.
+            Pega os dados dos widget do formulário
         '''
-        if not self.update():   #atuliza o banco de dados com os dados do form
-            #self.set_grid_line()        #atualiza o grid
-            self.set_grid_line_data()
+        datum = {}
+        for key in self.controls.keys():
+            form_widget = self.controls[key]
+            datum[key] = self.get_widget_data(form_widget)
+        return(datum)
 
 
+    def get_form_keys(self):
+        '''
+            Obtém os dados dos campos do formulaŕio que são chaves primárias da tabela
+        '''
+        datum = {}
+        for key in self.controls.keys():
+            column = self.data_table.c[key]
+            widget = self.controls[key]
+            if column.primary_key:
+                datum[key]  = self.get_widget_data(widget)
+        return datum
+
+
+    def get_form_dbdata(self, form_data):
+        '''
+            Obtem dados do banco de dados a partir dos dados das chaves primárias do formulário
+            Parâmetros
+                (form_data:dictionary) Dados de onde se vai retirar as chaves que vão filtrar os dados do banco de dados
+            return
+                (row_proxy) com os dados obtidos do banco de dados
+        '''
+        sel = select(self.data_table.c)            
+        for key in form_data.keys():
+            column = self.data_table.c[key]            
+            if column.primary_key:
+                sel = sel.where(self.data_table.c.get(key) == form_data[key])
+        result = self.conn.execute(sel)
+        return result.fetchone()
+
+
+    def get_grid_data(self, row):
+        '''
+            Pega os dados da linha (row) passada como parâmetro e coloca num dicionário
+            parametros
+                (row:int) Linha do grid que se vai obter os dados
+            retorno
+                (datum:dictionary) Dados obtidos da linha na forma 'campo:valor'            
+        '''
+        datum = {}
+        for widget in self.scrolled_frame.grid_slaves(): #loop nos widget do grid            
+            if int(widget.grid_info()['row']) == row:       #se o widget pertencer a linha pega os dados
+                datum[widget.name] = self.get_widget_data(widget)
+        return datum
+    
+    def get_grid_data_3(self, row):
+        '''
+            Pega os dados da linha (row) passada como parâmetro e coloca num dicionário
+            parametros
+                (row:int) Linha do grid que se vai obter os dados
+            retorno
+                (widgets:dictionary) Dados obtidos da linha na forma 'campo:valor'            
+        '''
+        widgets = {widget.name:self.get_widget_data(widget) for widget in self.scrolled_frame.grid_slaves() if widget.grid_info()['row'] == row}
+        return widgets
+
+
+    def get_grid_data_2(self, row):
+        datum = {}
+        qt_cols = len(self.controls.keys())
+        for i, key in enumerate(reversed(self.controls.keys())):            
+            index = (self.last_inserted_row - (row))*len(self.controls.keys())-len(self.controls.keys())
+            datum[key] = self.scrolled_frame.grid_slaves()[index + (qt_cols + i)].get()
+        return datum
+
+
+    def get_grid_dbdata(self):
+        '''
+            Obtem os dados do Banco de Dados e preenche o grid
+        '''
+        result_proxy = self.conn.execute(self.grid_select_stm) 
+        self.fill_grid(result_proxy.fetchall())
+    
+    def get_grid_keys(self, row):
+        '''
+            Obtém os dados do grid que são chaves primárias da tabela
+        '''
+        data = self.get_grid_data_3(row)
+        datum = {}
+        for key in self.data_table.c.keys():
+            column = self.data_table.c[key]
+            if column.primary_key:
+                datum[key]  = data[key]
+        return datum
+
+    def get_grid_next_line(self, row):
+        '''
+            Pega a proxima linha do grid após row, se não tiver, pega uma das primeiras linahs, caso não tenha 
+            retorna uma lista vazia
+        '''
+        widgets = reversed(self.scrolled_frame.grid_slaves()) 
+        if widgets:
+            rows = [widget.grid_info()['row'] for widget in widgets if widget.grid_info()['row'] > row]
+            if rows:
+                return rows[0]
+            rows = [widget.grid_info()['row'] for widget in self.scrolled_frame.grid_slaves() if widget.grid_info()['row'] < row]
+            if rows:
+                return rows[0]
+        return -1
+
+
+    def get_widget_data(self, widget):
+        '''
+            Pega o dado do widget
+        '''
+        if type(widget) == tk.Entry:
+            return widget.get().strip()
+        elif type(widget) == tk.Label:
+           return widget['text'].strip()
+
+
+    def new(self):
+        '''
+            Limpa o form e ajusta a última linha clicada para -1
+        '''
+        self.last_clicked_row = -1
+        self.clear_form()
+
+
+    def order_by(self, list_order):
+        self.grid_select_stm = self.grid_select_stm.order_by(list_order)
+
+
+    def row_click(self, event):
+        '''
+            Disparado ao clicar no grid
+            Pega os dados do grid e põe no form
+        '''
+        self.last_clicked_row = event.widget.grid_info()['row']     #pega o numero da linha clicada
+        self.set_form_data(self.get_grid_data_3(int(event.widget.grid_info()['row'])))
+
+    
     def set_form_data(self, datum):
         for key in self.controls.keys():
             data = datum[key]
@@ -940,25 +1068,52 @@ class FrameGrid01(tk.Frame):
             self.set_widget_data(form_widget, data)
 
 
-    def get_grid_data(self, row):
-        '''
-            Pega os dados da linha clicada e coloca num dicionário
-            parametros
-                (row:int) Linha do grid que se vai obter os dados
-            retorno
-                (datum:dicti0nary) Dados obtidos da linha na forma 'campo:valor'            
-        '''
-        datum = {}
-        for widget in self.scrolled_frame.grid_slaves(): #loop nos widget do grid            
-            if int(widget.grid_info()['row']) == row:       #se o widget pertencer a linha pega os dados
-                #self.set_form_widget(widget)
-                datum[widget.name] = self.get_widget_data(widget)
-        return datum
+    def set_form_widget(self, widget):
+        form_widget = self.controls[widget.name]
+        if type(form_widget) == tk.Entry:
+            if form_widget['state'] == 'readonly':
+                readonly = True
+                form_widget.config(state=tk.NORMAL)
+            else:
+                readonly = False
+            form_widget.delete(0, tk.END)
+            form_widget.insert(0, widget.get())
+            if readonly:
+                form_widget.config(state='readonly')
 
 
-    def get_widget_data(self, widget):
-        if type(widget) == tk.Entry:
-            return widget.get()
+    def set_grid_line(self):
+        '''
+            Pega os dados do formulaŕio e atualiza a linha atual do grid
+        '''
+        data = self.get_form_data()                             #pega os dados do formuario
+        self.set_grid_line_data(data, self.last_clicked_row)    #atualiza a linha atual
+
+
+    def set_grid_line_data(self, data, row):
+        '''
+            Pega os dados de um dicionario passado e atualiza a linha do grid (row) passada como parâmetro
+        '''
+        for widget in self.scrolled_frame.grid_slaves():        #loop em todos os widget do grid
+            if int(widget.grid_info()['row']) == row:           #se o widget pertence a linha (row)
+                self.set_widget_data(widget, data[widget.name]) #atualiza o widget
+
+
+    def set_grid_line_data_2(self, data, row):
+        qt_cols = len(self.controls.keys())
+        for i, key in enumerate(reversed(self.controls.keys())):
+            index = (self.last_inserted_row - (row))*len(self.controls.keys())-len(self.controls.keys())
+            widget = self.scrolled_frame.grid_slaves()[index + (qt_cols + i)]
+            self.set_widget_data(widget, data[key])
+
+    def set_grid_widget(self, widget, value_widget): 
+        try:
+            widget.config(state=tk.NORMAL)
+            widget.delete(0, tk.END)
+            widget.insert(0, value_widget)
+            widget.config(state='readonly')
+        except Exception as e:
+            raise e
 
 
     def set_widget_data(self, widget, data):
@@ -978,70 +1133,6 @@ class FrameGrid01(tk.Frame):
                 return 0
         else:
             return -1
-        
-    def set_grid_widget(self, widget, value_widget): 
-        try:
-            widget.config(state=tk.NORMAL)
-            widget.delete(0, tk.END)
-            widget.insert(0, value_widget)
-            widget.config(state='readonly')
-        except Exception as e:
-            raise e
-
-
-    def set_form_widget(self, widget):
-        form_widget = self.controls[widget.name]
-        if type(form_widget) == tk.Entry:
-            if form_widget['state'] == 'readonly':
-                readonly = True
-                form_widget.config(state=tk.NORMAL)
-            else:
-                readonly = False
-            form_widget.delete(0, tk.END)
-            form_widget.insert(0, widget.get())
-            if readonly:
-                form_widget.config(state='readonly')
-
-    def set_grid_line_data(self):
-        data = self.get_form_data()
-        for widget in self.scrolled_frame.grid_slaves():
-            if int(widget.grid_info()['row']) == self.last_clicked_row:
-                self.set_widget_data(widget, data[widget.name])
-            
-    def set_grid_line(self):
-        try:
-            if self.last_clicked_row == -1:
-                return 
-            for widget in self.scrolled_frame.grid_slaves():            
-                if int(widget.grid_info()['row']) == self.last_clicked_row:
-                    if widget.name == 'cd_ean_produto':
-                        self.set_grid_widget(widget, self.cd_ean_produto.get())
-                    elif widget.name == 'ds_produto':
-                        self.set_grid_widget(widget, self.ds_produto.get())
-                    elif widget.name == 'cd_ncm_produto':
-                        self.set_grid_widget(widget, self.cd_ncm_produto.get())
-                    elif widget.name == 'cd_ean_interno':
-                        self.set_grid_widget(widget, self.cd_ean_interno.get())
-                    elif widget.name == 'qt_item_embalagem':
-                        self.set_grid_widget(widget, self.qt_item_embalagem.get())            
-                    elif widget.name == 'dt_criacao':
-                        self.set_grid_widget(widget, self.dt_criacao['text'])
-        except Exception as e:
-            raise e
-
-
-    def fill_grid(self, data_rows):
-        '''
-            Preenche um grid a partir de um data_rows passado
-        '''
-        #limpa o grid
-        self.clear_grid()
-        
-        self.data_rows = data_rows
-        #para cada linha retornada em data_rows
-        for row, data_row in enumerate(data_rows, 2):
-            self.fill_row(row, data_row)
-        self.last_inserted_row = row
 
 
     def str_to_date(self, str_date):
@@ -1049,62 +1140,33 @@ class FrameGrid01(tk.Frame):
         return formatar_data(dt) 
 
 
-    def create_row_widget(self, widget_class=None, widget_name='',value='', row=0, column=0, width=11, **kargs):
-        e = widget_class(self.scrolled_frame,width=width, readonlybackground='white', **kargs)
-        e.grid(row = row,column=column)
-        if value is None:
-            value = ''
-        e.insert(0, value)
-        e.name = widget_name
-        e.bind("<Key>", lambda a: "break")
-        e.bind('<ButtonRelease>', self.row_click)
-        e.config(state='readonly')
-
-
-    def fill_row(self, row, data_row):
+    def update(self):
         '''
-            Criar os widgets do grid a partir dos controles do form(self.controls) e já preeche os dados nele
-        '''
-        for col, key in enumerate(self.controls.keys()):
-            self.create_row_widget(widget_class=tk.Entry, widget_name=key, value=data_row[key], 
-                                    row=row, column=col, width=self.controls[key]['width'])
+            Atualiza o banco de dados com os dados do form
+        '''   
+        try:
+            if self.last_clicked_row == -1:
+                result = self.check_form_for_update(insert=True)
+            else:
+                result = self.check_form_for_update(insert=False)            
+            if not result[0]:
+                if self.last_clicked_row == -1:
+                    return self.insert()
+                form_data = self.convert_data_to_bd(self.get_form_data())                
+                #form_keys = self.convert_data_to_bd(self.get_form_keys())
+                grid_keys = self.get_grid_keys(self.last_clicked_row)
+                updt = self.data_table.update()
+                for key in grid_keys:
+                    updt = updt.where(self.data_table.c[key] == grid_keys[key])
+                updt = updt.values(**form_data)
+                self.conn.execute(updt)
+                self.set_grid_line()                
+                return 0
+            return -1
+        except Exception as e:
+            print(e)
+            return -1
 
-
-    def make_header(self):
-        
-        e = tk.Entry(self.scrolled_frame, width=13, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=tk.W)
-        e.insert(0,'Gtin')
-        
-        e = tk.Entry(self.scrolled_frame, width=30, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=1, sticky=tk.W)
-        e.insert(0,'Descrição')
-        
-        e = tk.Entry(self.scrolled_frame, width=8, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=2, sticky=tk.W)
-        e.insert(0,'NCM')
-        
-        e = tk.Entry(self.scrolled_frame, width=13, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=3, sticky=tk.W)
-        e.insert(0,'Interno.')
-        
-        e = tk.Entry(self.scrolled_frame, width=5, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=4, sticky=tk.W)
-        e.insert(0,'Quant.')
-        
-        e = tk.Entry(self.scrolled_frame, width=11, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=5, sticky=tk.W)
-        e.insert(0,'Data Criação')
-        
-        
-    def clear_grid(self): 
-        ''' Limpa o grid'''
-        
-        for widget in self.scrolled_frame.grid_slaves():
-            
-            if int(widget.grid_info()['row']) > 1:
-                
-                widget.grid_forget()
 
 class FrameClassProduct(FrameGrid01):
     def __init__(self,  master, connection,  **args):
@@ -1125,15 +1187,11 @@ class FrameClassProduct(FrameGrid01):
         e.pack(side=tk.LEFT, pady=2)
         self.add_widget('ds_classe_produto', e)
         
+        self.create_row_header(['id', 'Classe'])
         self.order_by(self.grid_table.c.ds_classe_produto)
         self.get_grid_dbdata()
-        
-#    def get_data(self):
-#        stm = select([classe_produto_t.c.id_classe_produto, 
-#                     classe_produto_t.c.ds_classe_produto]).order_by(classe_produto_t.c.ds_classe_produto) #.where(products_gtin_t.c.cd_ean_produto.like('560%'))
-#        result_proxy = self.conn.execute(stm) 
-#        self.fill_grid(result_proxy.fetchall())
-        
+
+
 def make_class_product_window(master=None):
     make_window(master=master, Frame=FrameClassProduct, title='Classe  Produto')
     
