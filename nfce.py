@@ -859,7 +859,6 @@ class NfceBd():
                         produto.nu_fci_prod_serv = product_data['nu_fci_prod_serv']
                         produto.cest_prod_serv = product_data['cest_prod_serv']
                         session.add(produto)
-                        #self.__write_info_log(f'-;Inserido Produto: {product_data["nu_prod_serv"]} - {product_data["ds_prod_serv"]}')     
                         self.__write_info_log('-;Inserido Produto: {}-{} Gtin:{} Ncm:{}'.\
                             format(product_data['nu_prod_serv'], 
                                    product_data['ds_prod_serv'], 
@@ -894,6 +893,8 @@ class NfceBd():
                     produto.cd_ean_produto = product_data['cd_ean_prod_serv']
                     produto.ds_produto = product_data['ds_prod_serv']
                     produto.cd_ncm_produto = product_data['cd_ncm_prod_serv']
+                    produto.cd_ean_interno = product_data['cd_ean_prod_serv']
+                    produto.qt_item_embalagem = 1
                     session.add(produto)
                     self.__write_info_log(f'-;Inserido Produto Gtin: {product_data["cd_ean_prod_serv"]} - {product_data["ds_prod_serv"]}')     
                     
