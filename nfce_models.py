@@ -7,7 +7,7 @@ from sqlalchemy.orm import mapper
 engine = get_engine_bd()
 meta_data = MetaData(engine)
 emitente = Table('emitente', meta_data, autoload=True, autoload_with=engine)
-nota_fiscal = Table('nota_fiscal', meta_data, autoload=True, autoload_with=engine)
+nota_fiscal_t = Table('nota_fiscal', meta_data, autoload=True, autoload_with=engine)
 
 class Produtos(object):
     def __repr__(self):
@@ -92,14 +92,14 @@ products_sem_gtin_products_t = Table('produtos_x_prod_serv_sem_gtin', meta_data,
 products_gtin_products_t = Table('produtos_x_produtos_gtin', meta_data, autoload=True, autoload_with=engine)
 classe_produto_t = Table('classe_produto', meta_data, autoload=True, autoload_with=engine)
 
-products_gtin_products_v = Table('produtos_gtin_produtos_v', meta_data, autoload=True, autoload_with=engine)
+nota_fiscal_produtos_v = Table('nota_fiscal_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_sem_gtin_products_v = Table('produtos_sem_gtin_x_produtos_v', meta_data, autoload=True, autoload_with=engine)
-
+products_gtin_products_v = Table('produtos_gtin_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_exit_t = Table('saida_produtos', meta_data, autoload=True, autoload_with=engine)
 products_exit_v = Table('saida_produtos_v', meta_data, autoload=True, autoload_with=engine)
 
 mapper(Emitente, emitente)
-mapper(NotaFiscal, nota_fiscal)
+mapper(NotaFiscal, nota_fiscal_t)
 mapper(NotaFiscalFormaPagamento, Table('nota_fiscal_formas_pagamento', meta_data, autoload=True, autoload_with=engine))
 mapper(NotaFiscalTotais, Table('nota_fiscal_totais', meta_data, autoload=True, autoload_with=engine))
 mapper(NotaFiscalTransporte, Table('nota_fiscal_transporte', meta_data, autoload=True, autoload_with=engine))
