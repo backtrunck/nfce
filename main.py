@@ -33,7 +33,7 @@ def main():
     
     sistema_nfce = tk.Menu(top)
     sistema_nfce.add_command(label='Produtos',  command=(lambda master = root: nfce_produtos.make_product_window(master)), underline=0)
-    sistema_nfce.add_command(label='Clase Produto',  command=(lambda master = root: nfce_estoque.make_class_product_window(master)), underline=0)
+    sistema_nfce.add_command(label='Classe Produto',  command=(lambda master = root: nfce_estoque.make_class_product_window(master)), underline=0)
     sistema_nfce.add_command(label='Produtos Gtin',  command=(lambda master = root: nfce_estoque.make_product_gtin_window(master)), underline=0)
     sistema_nfce.add_command(label='Produtos Gtin x Produtos',  command=(lambda master = root: nfce_produtos.make_product_gtin_product_window(master)), underline=0)
     sistema_nfce.add_command(label='Produtos Sem Gtin x Produtos',  command=(lambda master = root: nfce_produtos.make_product_sem_gtin_product_window(master)), underline=0)
