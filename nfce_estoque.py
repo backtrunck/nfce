@@ -840,6 +840,7 @@ class FrameGrid01(tk.Frame):
         for row, data_row in enumerate(data_rows, 1):
             self.fill_row(row, data_row)
         self.last_inserted_row = row
+        self.last_clicked_row = -1
 
 
     def fill_row(self, row, data_row):
@@ -917,8 +918,10 @@ class FrameGrid01(tk.Frame):
             retorno
                 (widgets:dictionary) Dados obtidos da linha na forma 'campo:valor'            
         '''
-        widgets = {widget.name:self.get_widget_data(widget) for widget in self.scrolled_frame.grid_slaves() if widget.grid_info()['row'] == row}
-        return widgets
+        widgets_data = {}
+        if row > 0:
+            widgets_data = {widget.name:self.get_widget_data(widget) for widget in self.scrolled_frame.grid_slaves() if widget.grid_info()['row'] == row}
+        return widgets_data
 
 
     def get_grid_data_2(self, row):
@@ -980,7 +983,7 @@ class FrameGrid01(tk.Frame):
                 self.set_highlight_grid_line(self.last_clicked_row, self.bg_nor_line_grig )
             self.last_clicked_row = event.widget.grid_info()['row']     #pega o numero da linha clicada
             self.set_form_data(self.get_grid_data_3(int(event.widget.grid_info()['row'])))
-            print(self.get_grid_data(self.last_clicked_row))
+            #print(self.get_grid_data(self.last_clicked_row))
             self.set_highlight_grid_line(self.last_clicked_row, self.bg_sel_line_grig)
 
 
@@ -1298,7 +1301,6 @@ class FrameGridSearch(FrameGrid01):
                 self.set_highlight_grid_line(self.last_clicked_row, self.bg_nor_line_grig )
             self.last_clicked_row = event.widget.grid_info()['row']     #pega o numero da linha clicada
             #self.set_form_data(self.get_grid_data_3(int(event.widget.grid_info()['row'])))
-            print(self.get_grid_data(self.last_clicked_row))
             self.set_highlight_grid_line(self.last_clicked_row, self.bg_sel_line_grig)
     def set_filter(self, form_data):
         for key in form_data:
@@ -1386,7 +1388,7 @@ class FrameSearchInvoices(FrameGridSearch):
         filter = SearchField(field_name='ds_prod_serv', comparison_operator = Field.OP_LIKE, label='ds_prod_serv', width=35)        
         self.add_widget(filter, e)
         
-        self.add_widget_tool_bar(text='Detalhar', width = 10, command=None)
+        self.add_widget_tool_bar(text='Detalhar', width = 10, command=self.row_detail)
         
         nfce_field = SearchField(field_name='nu_nfce', comparison_operator = '=', label='Número', width=8)
         uf_field = SearchField(field_name='cd_uf', comparison_operator = '=', label='Uf', width=8)
@@ -1397,7 +1399,8 @@ class FrameSearchInvoices(FrameGridSearch):
         #self.create_row_header()
         self.scroll.set_header(self.columns)
                
-
+    def row_detail(self):
+        print(self.get_grid_data_3(self.last_clicked_row))
 
 
 class FrameClassProduct(FrameGridManipulation):
