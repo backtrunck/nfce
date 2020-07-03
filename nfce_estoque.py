@@ -9,8 +9,9 @@ from nfce_models import engine, products_exit_t,\
                                 products_gtin_t,\
                                 classe_produto_t,\
                                 nota_fiscal_produtos_v
+from nfce_gui import dlg_itens_invoice
 from interfaces_graficas import show_modal_win
-from sqlalchemy.sql import select, sqltypes
+from sqlalchemy.sql import select, sqltypes, and_
 from collections import OrderedDict, namedtuple
 
 SearchField = namedtuple("Filter", ['field_name', 'comparison_operator', 'label', 'width'])
@@ -682,6 +683,204 @@ class FrameProductGtin(tk.Frame):
                 widget.grid_forget()
 
 
+class FrameForm01(tk.Frame):
+    
+    
+    def __init__(self, master, connection,grid_table=None, **args):
+        '''
+            Parametros:
+                (master:tkinter.widget): Widget pai
+                (connection:object): Conecção com o banco de dados
+                (data_table:object): Tabela 
+        '''
+        
+        super().__init__(master, **args)
+        self.controls = OrderedDict()
+        self.conn = connection
+        self.columns = []
+        self.last_data_rows = None
+        self.last_clicked_row = -1
+        self.last_inserted_row = -1
+        self.grid_table = grid_table
+        
+        self.bg_sel_line_grig = 'gray71'
+        self.bg_nor_line_grig = 'white'
+        
+        self._form = tk.Frame(self)
+        self._form.pack(fill=tk.X)
+        
+        #self.frame_header = tk.Frame(self)
+        #self.frame_header.pack(fill=tk.X)
+        
+        self.grid_select_stm = select(self.grid_table.c).distinct()        
+        
+        f = tk.Frame(self)
+        f.pack(fill=tk.X)
+        self.scroll = ScrolledWindow(f, canv_w=450, canv_h = 200, scroll_h = False)
+        self.scroll.pack(pady=2)
+        self.scrolled_frame = tk.Frame(self.scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+        self.scrolled_frame.grid(row = 0, column = 0)
+        
+        self.tool_bar = tk.Frame(self)
+        self.tool_bar.pack(fill=tk.X)
+        tk.Button(self.tool_bar, text='Fechar', width = 10, command=self.close).pack(side=tk.RIGHT, padx=2, pady=5)
+
+    @property
+    def form(self):
+        return self._form
+
+    def add_widget(self, name_widget, widget):
+        '''
+            Adiciona controles ao form
+            Parâmetros:
+                (name_widget:string) Nome único do campo, vai ser a chave(key) de self.controls
+                (widget:tk.Widget) classe (class) do widget a ser inserido no form.
+        '''
+        self.controls[name_widget] = widget
+
+
+    def add_widget_tool_bar(self, **kwargs):
+        '''
+            Adiconar widgets ao toobar(self.tool_bar, que fica na parte inferior da tela)
+        '''
+        tk.Button(self.tool_bar, **kwargs).pack(side=tk.RIGHT, padx=2, pady=5)
+
+
+    def clear_form(self):
+        '''
+            Limpa todos os campos do form
+        '''
+        for key in self.controls.keys():
+            form_widget = self.controls[key]
+            self.set_widget_data(form_widget, '')
+
+
+    def close(self):
+        '''Fecha a janela'''
+        self.master.destroy()
+    
+
+    def convert_data_to_bd(self, data):
+        '''
+            Pega cada item do dicionario passado (data) e convert para o tipo específico de cada coluna no banco 
+            de dados. É necessário que as chaves do dicionário passado sejam iguais aos nomes dos campos no banco
+            de dados
+            Parâmetros:
+                (data:dictionarie) Dicionario com os valores a serem convertidos para o tipos de cada campo corres-
+                pondente do banco.
+        '''
+        datum={}
+        for key in data.keys():
+            col = self.data_table.c.get(key)
+            if col.type._type_affinity in [sqltypes.Date, sqltypes.DateTime]:
+                if is_valid_date(data[key]):
+                    datum[key] = string_to_date(data[key])
+                else:
+                    datum[key] = None
+            elif col.type._type_affinity in [sqltypes.Integer]:
+                try: 
+                    datum[key] = int(data[key])
+                except ValueError:
+                    datum[key] = None
+            elif col.type._type_affinity in [sqltypes.Float, sqltypes.Numeric]:
+                try:
+                    datum[key] = float(data[key])
+                except ValueError:
+                    datum[key] = None
+            elif col.type._type_affinity in [sqltypes.String]:
+                datum[key] = data[key]
+            else:
+                raise(Exception(f'Tipo do campo tratado: {col.type._type_affinity}'))
+        return datum
+
+    
+    def get_form_data(self):
+        '''
+            Pega os dados dos widget do formulário
+        '''
+        datum = {}
+        for key in self.controls.keys():
+            form_widget = self.controls[key]
+            datum[key] = self.get_widget_data(form_widget)
+        return(datum)
+
+
+    def get_form_keys(self):
+        '''
+            Obtém os dados dos campos do formulaŕio que são chaves primárias da tabela
+        '''
+        datum = {}
+        for key in self.controls.keys():
+            column = self.data_table.c[key]
+            widget = self.controls[key]
+            if column.primary_key:
+                datum[key]  = self.get_widget_data(widget)
+        return datum
+
+
+    def get_widget_data(self, widget):
+        '''
+            Pega o dado do widget
+        '''
+        if type(widget) == tk.Entry:
+            return widget.get().strip()
+        elif type(widget) == tk.Label:
+           return widget['text'].strip()
+
+   
+    def set_form_data(self, datum):
+        '''
+            Atualiza o contêudo dos widgets do form com os dados passados no parâmetros datum
+            Parâmetros
+                (datum:dicionario) Dicionario com os dados que vão ser colocado nos widget, as chaves(key) de datum
+                    devem ser idênticas as chaves(key) de self.controls
+        '''
+        for key in self.controls.keys():
+            data = datum[key]
+            form_widget = self.controls[key]
+            self.set_widget_data(form_widget, data)
+
+
+#    def set_form_widget(self, widget):
+#        form_widget = self.controls[widget.name]
+#        if type(form_widget) == tk.Entry:
+#            if form_widget['state'] == 'readonly':
+#                readonly = True
+#                form_widget.config(state=tk.NORMAL)
+#            else:
+#                readonly = False
+#            form_widget.delete(0, tk.END)
+#            form_widget.insert(0, widget.get())
+#            if readonly:
+#                form_widget.config(state='readonly')
+    
+
+    def set_widget_data(self, widget, data):
+        '''
+            Atualiza o dado do widget
+            Parâmetros
+                (widget:tk.Widget) widget que vai ter seu conteúdo alterado
+                (data:string) conteúdo a ser colocado no widget
+        '''
+        if type(widget) == tk.Entry:
+            last_state = widget['state']
+            widget.config(state=tk.NORMAL)
+            widget.delete(0, tk.END)
+            widget.insert(0, data)
+            widget.config(state=last_state)
+            return 0
+        elif type(widget) == tk.Label:
+                widget.config(text=data)
+                return 0
+        else:
+            return -1
+
+
+    def str_to_date(self, str_date):
+        dt = string_to_date(str_date)        
+        return formatar_data(dt) 
+
+
 class FrameGrid01(tk.Frame):
     
     
@@ -708,8 +907,8 @@ class FrameGrid01(tk.Frame):
         self._form = tk.Frame(self)
         self._form.pack(fill=tk.X)
         
-        self.frame_header = tk.Frame(self)
-        self.frame_header.pack(fill=tk.X)
+        #self.frame_header = tk.Frame(self)
+        #self.frame_header.pack(fill=tk.X)
         
         self.grid_select_stm = select(self.grid_table.c).distinct()        
         
@@ -729,14 +928,26 @@ class FrameGrid01(tk.Frame):
         return self._form
 
     def add_widget(self, name_widget, widget):
+        '''
+            Adiciona controles ao form
+            Parâmetros:
+                (name_widget:string) Nome único do campo, vai ser a chave(key) de self.controls
+                (widget:tk.Widget) classe (class) do widget a ser inserido no form.
+        '''
         self.controls[name_widget] = widget
 
 
     def add_widget_tool_bar(self, **kwargs):
+        '''
+            Adiconar widgets ao toobar(self.tool_bar, que fica na parte inferior da tela)
+        '''
         tk.Button(self.tool_bar, **kwargs).pack(side=tk.RIGHT, padx=2, pady=5)
 
 
     def clear_form(self):
+        '''
+            Limpa todos os campos do form
+        '''
         for key in self.controls.keys():
             form_widget = self.controls[key]
             self.set_widget_data(form_widget, '')
@@ -754,6 +965,9 @@ class FrameGrid01(tk.Frame):
 
 
     def clear_grid_line(self, row):
+        '''
+            Limpa o grid
+        '''
         qt_cols = len(self.controls.keys())
         for i, key in enumerate(reversed(self.controls.keys())):
             index = (self.last_inserted_row - (row))*len(self.controls.keys())-len(self.controls.keys())
@@ -767,6 +981,14 @@ class FrameGrid01(tk.Frame):
     
 
     def convert_data_to_bd(self, data):
+        '''
+            Pega cada item do dicionario passado (data) e convert para o tipo específico de cada coluna no banco 
+            de dados. É necessário que as chaves do dicionário passado sejam iguais aos nomes dos campos no banco
+            de dados
+            Parâmetros:
+                (data:dictionarie) Dicionario com os valores a serem convertidos para o tipos de cada campo corres-
+                pondente do banco.
+        '''
         datum={}
         for key in data.keys():
             col = self.data_table.c.get(key)
@@ -795,9 +1017,14 @@ class FrameGrid01(tk.Frame):
     def create_row_header(self, header=[], **kargs):
         '''
             Cria o cabeçalho do grid
+                Pode ser criados de duas maneiras: ou passa-se uma lista de strings com os cabeçalhos(parâmetro
+                header. Ou preenche-se a lista columns de FrameGrid01, com uma lista de objetos SearchField. E os
+                labes destes objetos SearchField serão os cabeçalhos.
+            Parâmetros:
+                (header:list) lista com os labels a serem mostrados na ordem no cabeçalho
+                
         '''
-        if self.columns:
-            labels = [col.label for col in self.columns]
+        if self.columns:                    #se columns contiver objetos SearchField
             for col, field in enumerate(self.columns):
                 e = tk.Label(self.frame_header,text=field.label, width=field.width)
                 e.grid(row = 0,column=col, sticky=tk.W)            
@@ -995,24 +1222,30 @@ class FrameGrid01(tk.Frame):
 
 
     def set_form_data(self, datum):
+        '''
+            Atualiza o contêudo dos widgets do form com os dados passados no parâmetros datum
+            Parâmetros
+                (datum:dicionario) Dicionario com os dados que vão ser colocado nos widget, as chaves(key) de datum
+                    devem ser idênticas as chaves(key) de self.controls
+        '''
         for key in self.controls.keys():
             data = datum[key]
             form_widget = self.controls[key]
             self.set_widget_data(form_widget, data)
 
 
-    def set_form_widget(self, widget):
-        form_widget = self.controls[widget.name]
-        if type(form_widget) == tk.Entry:
-            if form_widget['state'] == 'readonly':
-                readonly = True
-                form_widget.config(state=tk.NORMAL)
-            else:
-                readonly = False
-            form_widget.delete(0, tk.END)
-            form_widget.insert(0, widget.get())
-            if readonly:
-                form_widget.config(state='readonly')
+#    def set_form_widget(self, widget):
+#        form_widget = self.controls[widget.name]
+#        if type(form_widget) == tk.Entry:
+#            if form_widget['state'] == 'readonly':
+#                readonly = True
+#                form_widget.config(state=tk.NORMAL)
+#            else:
+#                readonly = False
+#            form_widget.delete(0, tk.END)
+#            form_widget.insert(0, widget.get())
+#            if readonly:
+#                form_widget.config(state='readonly')
     
 
     def set_grid_line(self):
@@ -1056,6 +1289,12 @@ class FrameGrid01(tk.Frame):
 
 
     def set_widget_data(self, widget, data):
+        '''
+            Atualiza o dado do widget
+            Parâmetros
+                (widget:tk.Widget) widget que vai ter seu conteúdo alterado
+                (data:string) conteúdo a ser colocado no widget
+        '''
         if type(widget) == tk.Entry:
             last_state = widget['state']
             widget.config(state=tk.NORMAL)
@@ -1400,7 +1639,17 @@ class FrameSearchInvoices(FrameGridSearch):
         self.scroll.set_header(self.columns)
                
     def row_detail(self):
-        print(self.get_grid_data_3(self.last_clicked_row))
+        nu_nfce = self.get_grid_data_3(self.last_clicked_row)
+        stm = select(nota_fiscal_produtos_v.c).where(and_(nota_fiscal_produtos_v.c['cd_uf'] == nu_nfce['cd_uf'], 
+                                                     nota_fiscal_produtos_v.c['cd_modelo'] == nu_nfce['cd_modelo'], 
+                                                     nota_fiscal_produtos_v.c['serie'] == nu_nfce['serie'], 
+                                                     nota_fiscal_produtos_v.c['nu_nfce'] == nu_nfce['nu_nfce'], 
+                                                     nota_fiscal_produtos_v.c['cnpj'] == nu_nfce['cnpj']))
+        
+        #dlg_itens_invoice
+        result = self.conn.execute(stm).fetchall()
+        #print(result)
+        dlg_itens_invoice(result, self.conn)
 
 
 class FrameClassProduct(FrameGridManipulation):
@@ -1427,7 +1676,7 @@ class FrameClassProduct(FrameGridManipulation):
         self.get_grid_dbdata()
 
 def make_class_search_invoice_window(master=None):
-    make_window(master=master, Frame=FrameSearchInvoices, title='Pesquisa Nota Fiscal')
+    make_window(master=master, Frame=FrameSearchInvoices, title='Pesquisa Nota Fiscal', resizable=False)
     
 def make_class_product_window(master=None):
     make_window(master=master, Frame=FrameClassProduct, title='Classe  Produto')
@@ -1438,7 +1687,7 @@ def make_product_exit_window(master=None):
 def make_product_gtin_window(master=None):
     make_window(master=master, Frame=FrameProductGtin, title='Produtos Gtin')
 
-def make_window(master=None, Frame=None, title=None):
+def make_window(master=None, Frame=None, title=None, resizable=True):
     if master:
         root = tk.Toplevel(master)
         root.conn = master.conn
@@ -1450,6 +1699,8 @@ def make_window(master=None, Frame=None, title=None):
     if Frame:
         f = Frame(root, root.conn)
         f.pack(fill = tk.X)
+        if not resizable:
+            root.resizable(False, False)
         if master:
             show_modal_win(root)
         else:
