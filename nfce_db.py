@@ -20,10 +20,13 @@ def get_engine_bd():
         Conecta com um banco de dados e obtem um engine do mesmo
     '''
     user = os.environ.get('USER_DB_NTFCE')
-    host = 'localhost'
+    #host = 'localhost'
+    host = '192.168.25.7'
     password = os.environ.get('PASS_DB_NTFCE')
     banco = 'nota_fiscal'
-    engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), echo = True, isolation_level="READ COMMITTED")
+    engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), 
+                                                        echo = False,
+                                                        isolation_level="READ COMMITTED")
     return engine
     
 
