@@ -4,6 +4,7 @@
 import os,  re, csv, io, logging, datetime
 import tkinter as tk
 import nfce_db
+from nfce_models import products_gtin_products_t
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -525,26 +526,36 @@ def search_product(drive, product_code, logger):
     
 def insert_product_db(db_connection, data_product, dict_types_field={}):
     
-    sql =   '''insert into produtos_gtin(cd_ean_produto, 
-                                    ds_produto,
-                                    cd_ncm_produto,
-                                    img_produto,
-                                    img_barcode,
-                                    cadastrado,
-                                    cd_ean_interno,
-                                    qt_item_embalagem)
-                        values( :cd_ean_produto,
-                                :ds_produto,
-                                :cd_ncm_produto,
-                                :img_produto,
-                                :img_barcode,
-                                :cadastrado,
-                                :cd_ean_interno,
-                                :qt_item_embalagem)
-            '''
-                                    
-    nfce_db.execute_sql(db_connection, sql, data_product, dict_types_field)
-
+    transaction = db_connection.begin()
+    try:
+        sql =   '''insert into produtos_gtin(cd_ean_produto, 
+                                        ds_produto,
+                                        cd_ncm_produto,
+                                        img_produto,
+                                        img_barcode,
+                                        cadastrado,
+                                        cd_ean_interno,
+                                        qt_item_embalagem)
+                            values( :cd_ean_produto,
+                                    :ds_produto,
+                                    :cd_ncm_produto,
+                                    :img_produto,
+                                    :img_barcode,
+                                    :cadastrado,
+                                    :cd_ean_interno,
+                                    :qt_item_embalagem)
+                '''
+                                        
+        nfce_db.execute_sql(db_connection, sql, data_product, dict_types_field)
+        ins = products_gtin_products_t.insert().values(cd_ean_produto=data_product['cd_ean_produto'], 
+                                                                        id_produto = nfce_db.PRODUCT_NO_CLASSIFIED, 
+                                                                        manual = 1)
+        db_connection.execute(ins)
+        transaction.commit()
+    except Exception as e:
+        transaction.rollback()
+        showwarning('Inserir Produto',\
+            f'Produto {data_product["cd_ean_produto"]} - {data_product["ds_produto"]}, Erro - {e}')
 
 def update_product_db(db_connection, data_product, dict_types_field={}):    
     sql =   '''update produtos_gtin 

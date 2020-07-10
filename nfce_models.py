@@ -91,12 +91,16 @@ products_gtin_t = Table('produtos_gtin', meta_data, autoload=True, autoload_with
 products_sem_gtin_products_t = Table('produtos_x_prod_serv_sem_gtin', meta_data, autoload=True, autoload_with=engine)
 products_gtin_products_t = Table('produtos_x_produtos_gtin', meta_data, autoload=True, autoload_with=engine)
 classe_produto_t = Table('classe_produto', meta_data, autoload=True, autoload_with=engine)
+agrupamento_produto_t = Table('agrupamento_produto', meta_data, autoload=True, autoload_with=engine)
 
 nota_fiscal_produtos_v = Table('nota_fiscal_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_sem_gtin_products_v = Table('produtos_sem_gtin_x_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_gtin_products_v = Table('produtos_gtin_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_exit_t = Table('saida_produtos', meta_data, autoload=True, autoload_with=engine)
 products_exit_v = Table('saida_produtos_v', meta_data, autoload=True, autoload_with=engine)
+products_v = Table('produtos_v', meta_data, autoload=True, autoload_with=engine)
+products_class_v = Table('classe_produto_v', meta_data, autoload=True, autoload_with=engine)
+stock_v = Table('estoque_v', meta_data, autoload=True, autoload_with=engine)
 
 mapper(Emitente, emitente)
 mapper(NotaFiscal, nota_fiscal_t)

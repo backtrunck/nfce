@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project nfce -->
-<!-- Saved: 2020-06-07, 23:55:30 -->
+<!-- Saved: 2020-07-05, 18:12:00 -->
 <!-- Copyright (C) 2020 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -21,6 +21,7 @@
     <Source>interfaces_graficas/ScrolledList.py</Source>
     <Source>interfaces_graficas/ScrolledWindow.py</Source>
     <Source>interfaces_graficas/__init__.py</Source>
+    <Source>interfaces_graficas/db/__init__.py</Source>
     <Source>interfaces_graficas/quitter.py</Source>
     <Source>interfaces_graficas/simple_forms.py</Source>
     <Source>interfaces_graficas/vertical_scrolled_frame.py</Source>

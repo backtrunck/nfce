@@ -1,17 +1,22 @@
 import tkinter as tk
 from tkinter.messagebox import showwarning
-import nfce_db
+#import nfce_db
 import nfce_gui
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
-from interfaces_graficas import show_modal_win
+from interfaces_graficas.db import FrameGridManipulation, DBField, ComboBoxDB
+from interfaces_graficas import show_modal_win, ChkButton 
 from sqlalchemy import text
 from sqlalchemy.sql import select, and_
-from nfce_models import products_t,\
+from nfce_models import engine, \
+                        products_t,\
                         products_gtin_products_v, \
                         products_gtin_products_t, \
                         products_sem_gtin_products_v,\
-                        products_sem_gtin_products_t
-                        
+                        products_sem_gtin_products_t, \
+                        classe_produto_t, \
+                        products_v, \
+                        products_class_v, \
+                        agrupamento_produto_t
 import PIL
 import PIL.ImageTk as PilImageTk
 
@@ -268,8 +273,140 @@ class FrameSearchProduct(tk.Frame):
                 
                 widget.grid_forget()
 
+class FrameProductGrouping(FrameGridManipulation):
 
-class FrameProduct(tk.Frame):
+
+    def __init__(self,  master, connection,  **args):
+        
+        super().__init__(master, connection, data_table=agrupamento_produto_t , **args)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Id:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=6, state='readonly')
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('id_agrupamento', e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Descrição:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=50)
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('ds_agrupamento', e)
+        
+       
+        id_agrupamento = DBField(field_name='id_agrupamento', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
+        ds_agrupamento = DBField(field_name='ds_agrupamento', comparison_operator = '=', label='Agrupamento', width=40, type_widget=tk.Entry)
+        self.columns = [id_agrupamento, ds_agrupamento]
+
+        self.scroll.set_header(self.columns)
+        
+        self.order_by(self.grid_table.c.ds_agrupamento)
+        self.get_grid_dbdata()
+
+class FrameClassProduct(FrameGridManipulation):
+
+
+    def __init__(self,  master, connection,  **args):
+        
+        super().__init__(master, connection, data_table=classe_produto_t,grid_table=products_class_v , **args)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Id:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=6, state='readonly')
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('id_classe_produto', e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Classe:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=50)
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('ds_classe_produto', e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Agrup.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = ComboBoxDB(f, width=40)
+        e.ds_key = 'ds_agrupamento'
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('id_agrupamento', e)
+        s = select([agrupamento_produto_t.c.id_agrupamento,
+                    agrupamento_produto_t.c.ds_agrupamento]).\
+                    order_by(agrupamento_produto_t.c.ds_agrupamento)
+        result = self.conn.execute(s)
+        e.fill_list(result.fetchall())
+        
+        
+        id_classe_produto = DBField(field_name='id_classe_produto', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
+        ds_classe_produto = DBField(field_name='ds_classe_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
+        id_agrupamento = DBField(field_name='id_agrupamento', comparison_operator = '=', label='Id. Agr.', width=6, type_widget=tk.Entry)
+        ds_agrupamento = DBField(field_name='ds_agrupamento', comparison_operator = '=', label='Agrup.', width=30, type_widget=tk.Entry)
+        self.columns = [id_classe_produto, ds_classe_produto, id_agrupamento, ds_agrupamento]
+
+        self.scroll.set_header(self.columns)
+        
+        self.order_by(self.grid_table.c.ds_classe_produto)
+        self.get_grid_dbdata()
+
+
+class FrameProduct(FrameGridManipulation):
+
+
+    def __init__(self,  master, connection,  **args):
+
+
+        super().__init__(master, connection, data_table=products_t,grid_table=products_v , **args)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Id:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10, state='readonly')
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('id_produto', e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Produto:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=50)
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('ds_produto', e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Classif.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = ChkButton(f, width=1, anchor="w")
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('classificado', e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Classe:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = ComboBoxDB(f, width=40)
+        e.ds_key = 'ds_classe_produto'
+        e.pack(side=tk.LEFT, pady=2)
+        self.add_widget('id_classe_produto', e)
+        s = select([classe_produto_t.c.id_classe_produto,
+                    classe_produto_t.c.ds_classe_produto]).\
+                    order_by(classe_produto_t.c.ds_classe_produto)
+        result = self.conn.execute(s)
+        e.fill_list(result.fetchall())
+        
+        id_produto = DBField(field_name='id_produto', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
+        ds_produto = DBField(field_name='ds_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
+        ds_classe_modelo = DBField(field_name='ds_classe_produto', comparison_operator = '=', label='Classe', width=30, type_widget=tk.Entry)
+        id_classe_produto = DBField(field_name='id_classe_produto', comparison_operator = '=', label='Cd.Classe', width=8, type_widget=tk.Entry)
+        classificado = DBField(field_name='classificado', comparison_operator = '=', label='Classif.', width=5, type_widget=ChkButton)
+        self.columns = [id_produto, ds_produto, ds_classe_modelo,id_classe_produto, classificado]
+
+        self.scroll.set_header(self.columns)
+        
+        self.order_by(self.grid_table.c.ds_produto)
+        self.get_grid_dbdata()
+
+
+class FrameProduct_old(tk.Frame):
     def __init__(self, master, connection,  **args):
         super().__init__(master, **args)
         self.controls = []
@@ -503,14 +640,14 @@ class FrameProductGtimProduct(tk.Frame):
         f = tk.Frame(self)
         f.pack(fill=tk.X)
         tk.Label(f, text='Desc. Gtin:', width=label_width,  anchor='e').pack(side=tk.LEFT, anchor='w')
-        self.ds_gtin = tk.Entry(f, width=50, state='readonly')
+        self.ds_gtin = tk.Entry(f, width=60, state='readonly')
         self.ds_gtin.pack(side=tk.LEFT, pady=2)
         self.ds_gtin.focus_set()
                 
         f = tk.Frame(self)
         f.pack(fill=tk.X)
         tk.Label(f, text='Produto:', width=label_width, anchor='e').pack(side=tk.LEFT, anchor='w')
-        self.product = nfce_gui.ComboBoxDB(f, width=40, state='readonly')
+        self.product = ComboBoxDB(f, width=40, state='readonly')
         self.id_product = tk.Entry(f)
         self.fill_products()
         self.product.pack(side=tk.LEFT, pady=2)
@@ -636,7 +773,7 @@ class FrameProductGtimProduct(tk.Frame):
         e.bind('<ButtonRelease>', self.row_click)
         e.config(state='readonly')
                                                 
-        e = tk.Entry(self.scrolled_frame, width=50, readonlybackground='white')
+        e = tk.Entry(self.scrolled_frame, width=70, readonlybackground='white')
         e.grid(row=row, column=1)
         e.insert(0, data_row['ds_gtin'])
         e.name = 'ds_gtin'
@@ -678,7 +815,7 @@ class FrameProductGtimProduct(tk.Frame):
         e.grid(row=1, column=0, sticky=tk.W)
         e.insert(0,'Gtin')
         
-        e = tk.Entry(self.scrolled_frame, width=50, relief=tk.FLAT, background='#d9d9d9')
+        e = tk.Entry(self.scrolled_frame, width=60, relief=tk.FLAT, background='#d9d9d9')
         e.grid(row=1, column=1, sticky=tk.W)
         e.insert(0,'Desc. Gtin')
         
@@ -737,7 +874,7 @@ class FrameProductSemGtimProduct(tk.Frame):
         f = tk.Frame(self)
         f.pack(fill=tk.X)
         tk.Label(f, text='Produto:', width=label_width, anchor='e').pack(side=tk.LEFT, anchor='w')
-        self.product = nfce_gui.ComboBoxDB(f, width=40, state='readonly')
+        self.product = ComboBoxDB(f, width=40, state='readonly')
         self.fill_products()
         self.id_product = tk.Entry(f) #sem pack(invisivel), usado para guardar a chave pro update
         self.product.pack(side=tk.LEFT, pady=2)
@@ -1003,7 +1140,7 @@ class FrameProductEan(tk.Frame):
         
         #row += 1
         tk.Label(self, text='Desc. Prod.: ', anchor='e').grid(row=row, column=2)        
-        e = nfce_gui.make_widget(self, tk.Entry, 'ds_produto','','LIKE', width=35)
+        e = nfce_gui.make_widget(self, tk.Entry, 'ds_produto','','LIKE', width=60)
         self.controls[e.index_name] = e
         e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
         
@@ -1091,48 +1228,57 @@ def testeFormSimpleDialog():
     #root.bind('<Configure>', configure) 
     #root.geometry('830x380')
     
-    engine = nfce_db.get_engine_bd()    
+#    engine = nfce_db.get_engine_bd()    
     conn = engine.connect()
     
     f = FrameSearchProduct(root,conn)
     f.pack(fill = tk.X)
     root.mainloop()
 
-def make_window(master=None, Frame=None, title=None):
+def make_product_grouping_window(master=None):
+    make_window(master=master, Frame=FrameProductGrouping, title='Agrupamento')
+    
+def make_class_product_window(master=None):
+    make_window(master=master, Frame=FrameClassProduct, title='Classe  Produto')
+    
+def make_window(master=None, Frame=None, title=None, resizable=True):
     if master:
         root = tk.Toplevel(master)
         root.conn = master.conn
     else:
         root = tk.Tk()
-        engine = nfce_db.get_engine_bd()    
         root.conn = engine.connect()
     if title:
         root.title(title)
     if Frame:
         f = Frame(root, root.conn)
         f.pack(fill = tk.X)
+        if not resizable:
+            root.resizable(False, False)
         if master:
             show_modal_win(root)
         else:
             root.mainloop()
     return
 
-def make_product_window(master=None):
-    make_window(master=master, Frame=FrameProduct, title='Produtos')
-
 def make_product_gtin_product_window(master=None, conn=None):
     make_window(master=master, Frame=FrameProductGtimProduct, title='Produtos x Produtos Gtin')
 
 def make_product_sem_gtin_product_window(master=None, conn=None):
     make_window(master=master, Frame=FrameProductSemGtimProduct, title='Produtos x Produtos Sem Gtin')
+
+def make_product_window(master=None):
+    make_window(master=master, Frame=FrameProduct, title='Produtos')   
     
 def main():    
-    make_product_gtin_product_window()
-    return
+    #make_product_gtin_product_window()
+    make_product_grouping_window()
 
 if __name__ == '__main__':
     #make_product_window()
-    make_product_gtin_product_window()
+    #make_class_product_window()
+    #make_product_gtin_product_window()
     #make_product_sem_gtin_product_window()
+    main()
     
 

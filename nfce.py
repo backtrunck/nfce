@@ -824,7 +824,7 @@ class NfceBd():
                                           ProdutoServico.cnpj == product_data['cnpj'], 
                                           ProdutoServico.cd_modelo == product_data['cd_modelo'], 
                                           ProdutoServico.nu_prod_serv == product_data['nu_prod_serv'])
-                    if query.count() == 0:
+                    if query.count() == 0:   #ProdutoServico não encontrado?(inseri!)
                         self.insert_product_gtin_data(product_data, session)
                         produto = ProdutoServico()
                         produto.nu_nfce = product_data['nu_nfce']

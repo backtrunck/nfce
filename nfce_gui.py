@@ -3,14 +3,39 @@ from sqlalchemy import *
 from sqlalchemy.sql import text
 #from tkinter import * 
 import tkinter as tk
-from tkinter.ttk import Combobox
+#from tkinter.ttk import Combobox
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
+from interfaces_graficas.db import FrameGridSearch, DBField#, ComboBoxDB
 from interfaces_graficas import show_modal_win
+from nfce_models import nota_fiscal_produtos_v
 from PIL import Image
 from PIL.ImageTk import PhotoImage
-from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice
+from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice, Field
+
+def make_class_search_invoice_window(master=None):
+    make_window(master=master, Frame=FrameSearchInvoices, title='Pesquisa Nota Fiscal', resizable=False)
+
     
+def make_window(master=None, Frame=None, title=None, resizable=True):
+    if master:
+        root = tk.Toplevel(master)
+        root.conn = master.conn
+    else:
+        root = tk.Tk()
+        root.conn = nfce_db.get_engine_bd().connect()
+    if title:
+        root.title(title)
+    if Frame:
+        f = Frame(root, root.conn)
+        f.pack(fill = tk.X)
+        if not resizable:
+            root.resizable(False, False)
+        if master:
+            show_modal_win(root)
+        else:
+            root.mainloop()
+    return
 def make_widget(master, widget_type, index_name, field_name='', comparison_operator='=', **options):
         
         e = widget_type(master, **options)
@@ -169,7 +194,133 @@ class FrameGrid(tk.Frame):
         for widget in self.frmGrid.grid_slaves():
             if int(widget.grid_info()['row']) > 1:
                 widget.grid_forget()
-    
+
+
+
+
+
+class FrameSearchInvoices(FrameGridSearch):
+    def __init__(self, master, connection, **kwargs):
+        super().__init__(master, connection, grid_table=nota_fiscal_produtos_v, **kwargs)
+        
+        width_label = 12
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Ch. de Acesso:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=44)
+        e.pack(side=tk.LEFT, pady=2)
+#        field = SearchField(field_name='chave_acesso', comparison_operator = Field.OP_EQUAL, label='chave_acesso', width=44) 
+        field = DBField(field_name='chave_acesso',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='chave_acesso',
+                        width=44,
+                        type_widget=None)
+        self.add_widget(field, e)
+           
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Cnpj:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+#        cnpj_field = SearchField(field_name='cnpj', comparison_operator = Field.OP_EQUAL, label='cnpj', width=14)
+        cnpj_field = DBField(field_name='cnpj', 
+                                 comparison_operator = Field.OP_EQUAL,
+                                 label='cnpj',
+                                 width=14, 
+                                 type_widget=tk.Entry)
+        self.add_widget(cnpj_field, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Estabelec.:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=40)
+        e.pack(side=tk.LEFT, pady=2)
+#        supplier_field = SearchField(field_name='estabelecimento', comparison_operator = Field.OP_EQUAL, label='estabelecimento', width=40)        
+        supplier_field = DBField(field_name='estabelecimento', 
+                                     comparison_operator = Field.OP_LIKE,
+                                    label='estabelecimento',
+                                    width=40, 
+                                    type_widget=tk.Entry)        
+        self.add_widget(supplier_field, e)
+        
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Data De:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+        #dt_emission_field = SearchField(field_name='dt_emissao', comparison_operator = Field.OP_GREATER_EQUAL, label='Emissão', width=10)        
+        dt_emission_field = DBField(field_name='dt_emissao',
+                                        comparison_operator = Field.OP_GREATER_EQUAL,
+                                        label='Emissão',
+                                        width=10, 
+                                        type_widget=tk.Entry)        
+        self.add_widget(dt_emission_field, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Data Até:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+#        field = SearchField(field_name='dt_emissao', comparison_operator = Field.OP_LESS_EQUAL, label='dt_emissao_2', width=10)        
+        field = DBField(field_name='dt_emissao',
+                            comparison_operator = Field.OP_LESS_EQUAL,
+                            label='dt_emissao_2',
+                            width=10, 
+                            type_widget=None)        
+        self.add_widget(field, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtin:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+#        filter = SearchField(field_name='cd_ean_prod_serv', comparison_operator = Field.OP_EQUAL, label='cd_ean_prod_serv', width=14) 
+        filter = DBField(field_name='cd_ean_prod_serv',
+                             comparison_operator = Field.OP_EQUAL,
+                             label='cd_ean_prod_serv',
+                             width=14, 
+                             type_widget=None)        
+        self.add_widget(filter, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Produto:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=35)
+        e.pack(side=tk.LEFT, pady=2)
+#        filter = SearchField(field_name='ds_prod_serv', comparison_operator = Field.OP_LIKE, label='ds_prod_serv', width=35)        
+        filter = DBField(field_name='ds_prod_serv',
+                             comparison_operator = Field.OP_LIKE,
+                             label='ds_prod_serv',
+                             width=35, 
+                             type_widget=None)        
+        self.add_widget(filter, e)
+        
+        self.add_widget_tool_bar(text='Detalhar', width = 10, command=self.row_detail)
+        
+        nfce_field = DBField(field_name='nu_nfce', comparison_operator = '=', label='Número', width=8, type_widget=tk.Entry)
+        uf_field = DBField(field_name='cd_uf', comparison_operator = '=', label='Uf', width=8, type_widget=tk.Entry)
+        serie_field = DBField(field_name='serie', comparison_operator = '=', label='Série', width=5, type_widget=tk.Entry)
+        modelo_field = DBField(field_name='cd_modelo', comparison_operator = '=', label='Modelo', width=6, type_widget=tk.Entry)
+#        dt_emission_field = DBField(field_name='dt_emissao', comparison_operator = Field.OP_GREATER_EQUAL, label='Emissão', width=18, type_widget=tk.Entry)
+#        cnpj_field = DBField(field_name='cnpj', comparison_operator = Field.OP_GREATER_EQUAL, label='cnpj', width=14, type_widget=tk.Entry)
+#        supplier_field = DBField(field_name='estabelecimento', comparison_operator = Field.OP_GREATER_EQUAL, label='Estabelecimento', width=40, type_widget=tk.Entry)
+        self.columns = [dt_emission_field, cnpj_field, supplier_field,nfce_field, serie_field, modelo_field, uf_field ]
+        #self.create_row_header()
+        self.scroll.set_header(self.columns)
+               
+    def row_detail(self):
+        nu_nfce = self.get_grid_data(self.last_clicked_row)
+        stm = select(nota_fiscal_produtos_v.c).where(and_(nota_fiscal_produtos_v.c['cd_uf'] == nu_nfce['cd_uf'], 
+                                                     nota_fiscal_produtos_v.c['cd_modelo'] == nu_nfce['cd_modelo'], 
+                                                     nota_fiscal_produtos_v.c['serie'] == nu_nfce['serie'], 
+                                                     nota_fiscal_produtos_v.c['nu_nfce'] == nu_nfce['nu_nfce'], 
+                                                     nota_fiscal_produtos_v.c['cnpj'] == nu_nfce['cnpj']))
+        
+        #dlg_itens_invoice
+        result = self.conn.execute(stm).fetchall()
+        #print(result)
+        dlg_itens_invoice(result, self.conn)
 
 class FormSimpleDialog(tk.Frame):
     '''
@@ -401,58 +552,13 @@ def open_modal(win):
     win.grab_set()
     win.wait_window()
 
-class ComboBoxDB(Combobox):
-    
-    def __init__(self, master = None, **options):
-        super().__init__(master, **options)
-        self.list_content = []
-        self.bind('<Key>', self.__key)
-
-    
-    def __key(self, event):    
-        #print("pressed", repr(event.char))
-        if event.char == '\x7f': #se pressionou 'del'
-            self.set('')
-
-
-    def fill_list(self, list_content, erase=False):
-        '''
-            Preenche o list box, list_content deve ser um lista na qual a descrição é a coluna 1,
-            e a chave a coluna 0
-        '''
-        
-        if erase:
-            self['values'] = [item[1] for item in list_content]
-            self.list_content = list_content
-        else:
-            if self.list_content:
-                self['values'].extend([item[1] for item in list_content])
-                self.list_content.extend(list_content)
-            else:
-                self['values'] = [item[1] for item in list_content]
-                self.list_content = list_content
-
-
-    def get_key(self):        
-        if self.current() != -1:            
-            return self.list_content[self.current()][0]            
-        return self.current()    
-
-    
-    def set_key(self, key):        
-        try:            
-            #index = self.list_content.index(key)
-            index = [i[0] for i in self.list_content].index(key)
-            #self.set(self.list_content[index][0])            
-            self.current(index)
-        except ValueError:            
-            self.set('')
-
 
 def configure(event):
     print(event.width, event.height)
     
 def main():
+    make_class_search_invoice_window()
+    return
     root = tk.Tk()
     root.title('Consulta Produtos')
     #root.geometry('830x380') 
