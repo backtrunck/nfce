@@ -1,9 +1,7 @@
 import nfce_db
 from sqlalchemy import *
-from sqlalchemy.sql import text
-#from tkinter import * 
+from sqlalchemy.sql import text 
 import tkinter as tk
-#from tkinter.ttk import Combobox
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from interfaces_graficas.db import FrameGridSearch, DBField#, ComboBoxDB
