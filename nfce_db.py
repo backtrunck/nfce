@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql import text, bindparam
 
 PRODUCT_NO_CLASSIFIED = 146
-
+engine = None
 def execute_sql(db_connection, sql, dict_values_fields, dict_types_fields={}):
     #params=[]
     stmt = text(sql)
@@ -19,14 +19,16 @@ def get_engine_bd():
     ''' 
         Conecta com um banco de dados e obtem um engine do mesmo
     '''
-    user = os.environ.get('USER_DB_NTFCE')
-    #host = 'localhost'
-    host = '192.168.25.7'
-    password = os.environ.get('PASS_DB_NTFCE')
-    banco = 'nota_fiscal'
-    engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), 
-                                                        echo = False,
-                                                        isolation_level="READ COMMITTED")
+    global engine
+    if not engine:
+        user = os.environ.get('USER_DB_NTFCE')
+        #host = 'localhost'
+        host = '192.168.25.7'
+        password = os.environ.get('PASS_DB_NTFCE')
+        banco = 'nota_fiscal'
+        engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), 
+                                                            echo = False,
+                                                            isolation_level="READ COMMITTED")
     return engine
     
 
@@ -64,6 +66,11 @@ def get_product(db_connection,  product_code):
     
     return db_connection.execute(sql, (product_code, ))
    
+def get_connection():
+    return get_engine_bd().connect()
+    
+        
+        
     
 if __name__ == '__main__':
     engine = get_engine_bd()

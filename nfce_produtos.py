@@ -2,9 +2,10 @@ import tkinter as tk
 from tkinter.messagebox import showwarning
 #import nfce_db
 import nfce_gui
+from fields import Field
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
-from interfaces_graficas.db import FrameGridManipulation, DBField, ComboBoxDB
-from interfaces_graficas import show_modal_win, ChkButton 
+from interfaces_graficas.db import FrameGridManipulation, DBField, ComboBoxDB, FrameFormData, FrameGridSearch
+from interfaces_graficas import show_modal_win, ChkButton
 from sqlalchemy import text
 from sqlalchemy.sql import select, and_
 from nfce_models import engine, \
@@ -16,262 +17,367 @@ from nfce_models import engine, \
                         classe_produto_t, \
                         products_v, \
                         products_class_v, \
-                        agrupamento_produto_t
-import PIL
-import PIL.ImageTk as PilImageTk
+                        agrupamento_produto_t, \
+                        products_gtin_t
 
-class FrameSearchProduct(tk.Frame):
+#class FrameSearchProduct(tk.Frame):
+#    
+#    def __init__(self, master, db_connection, **options):
+#        
+#        super().__init__(master, **options)
+#        
+#        self.controls = {}
+#        self.db_connection = db_connection
+#        self.make_controls()
+#        
+#        self.get_ncm_01()
+#        self.get_ncm_02()
+#        self.get_ncm_05()
+#        
+#        self.controls['cd_ncm_01'].fill_list(self.ncm_01_list)
+#        self.controls['cd_ncm_02'].fill_list(self.ncm_02_list)
+#        self.controls['cd_ncm_05'].fill_list(self.ncm_05_list)
+#       
+#        
+#    def __make_widget(self, widget_type, index_name, field_name='', comparison_operator='=', **options):
+#        
+#        e = widget_type(self, **options)
+#        e.index_name = index_name
+#        e.comparison_operator=comparison_operator
+#        
+#        if field_name:
+#            
+#            e.field_name = field_name
+#        else:
+#            
+#            e.field_name = index_name        
+#        
+#        return e
+#        
+#    def make_controls(self, **options):
+#        
+#        if not options:
+#            options['sticky'] = 'w'
+#            options['padx'] = 2
+#            options['pady'] = 2
+#        
+#        row = 0         
+#        tk.Label(self, text='Ean:', anchor='e').grid(row=row, column=0)        
+#        e = self.__make_widget(tk.Entry, 'cd_ean_prod_serv','','LIKE',  width=15)
+#        self.controls[e.index_name] = e
+#        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+#        
+#        #row += 1
+#        tk.Label(self, text='Desc. Prod.: ', anchor='e').grid(row=row, column=2)        
+#        e = self.__make_widget(tk.Entry, 'ds_prod_serv','','LIKE', width=35)
+#        self.controls[e.index_name] = e
+#        e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+#        
+#        row += 1
+#        tk.Label(self, text='Ncm 01:', anchor='e').grid(row=row, column=0)        
+#        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_01' , '', '=', state='readonly')
+#        self.controls[e.index_name] = e
+#        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+#        
+#        #row += 1
+#        tk.Label(self, text='Ncm 02:', anchor='e').grid(row=row, column=2)        
+#        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_02', '', '=', width=35, state='readonly')
+#        self.controls[e.index_name] = e
+#        e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+#        
+#        row += 1
+#        tk.Label(self, text='Ncm 05:', anchor='e').grid(row=row,  column=0)        
+#        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_05' , '' ,'=', width=40, state='readonly')
+#        self.controls[e.index_name] = e
+#        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
+#        
+#        row += 1
+#        self.search_button = tk.Button(self, text = 'Procurar',  command=self.search)
+#        self.search_button.grid(row=row, column=3, sticky='E', padx=options['padx'], pady=10)
+#        self.columnconfigure(0, weight=1)
+#        self.columnconfigure(1, weight=1)
+#        
+#        row += 1
+#         #cria um frame com barras de rolagem que irá conter o grid
+#        scroll = ScrolledWindow(self, canv_w=200, canv_h = 200, scroll_h = False)
+#        scroll.columnconfigure(0, weight=1)
+#        scroll.grid(row=row, column=0, columnspan=4, sticky='WE')
+#        #scroll.pack(side=LEFT, fill=X, expand=YES, padx=10, pady=10)
+#        
+#        self.scrolled_frame = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
+#        self.scrolled_frame.grid(row = 0, column = 0)
+#
+#
+#    def make_header(self):
+#        
+#        e = tk.Entry(self.scrolled_frame, width=15, relief=tk.FLAT, background='#d9d9d9')
+#        e.grid(row=1, column=0, sticky=tk.W)
+#        e.insert(0,'EAN')
+#        
+#        e = tk.Entry(self.scrolled_frame, width=25, relief=tk.FLAT, background='#d9d9d9')
+#        e.grid(row=1, column=1, sticky=tk.W)
+#        e.insert(0,'Desc. Produto')
+#        
+#        e = tk.Entry(self.scrolled_frame, width=9, relief=tk.FLAT, background='#d9d9d9')
+#        e.grid(row=1, column=0, sticky=tk.W)
+#        e.insert(0,'NCM')
+#        
+#        e = tk.Entry(self.scrolled_frame, width=45, relief=tk.FLAT, background='#d9d9d9')
+#        e.grid(row=1, column=0, sticky=tk.W)
+#        e.insert(0,'Desc. NCM')
+#        
+#        
+#    def search(self):
+#        
+#        '''
+#            Pesquisa os dados a partir dos campos preenchidos
+#        '''
+#        
+#        values = self.get_values_controls()             #pega os valor preenchidos nos controles
+#        
+#        select = "SELECT cd_ean_prod_serv,ds_prod_serv,cd_ncm_prod_serv,ds_ncm_05 "
+#        
+#        if values:                                      #se algum campo foi preenchido
+#        
+#            where = self.make_sql_where(values)
+#            
+#            sql = select + ' FROM produtos_servicos_ean ps, ncm_v WHERE ps.cd_ncm_prod_serv = cd_ncm_05 and ' + where     #atenção a tabela do BD esta fixa, deve-se mudar a estratégia
+#
+#            result_proxy = self.db_connection.execute(text(sql), **values)               #executa a consulta    
+#            
+#        else:
+#            
+#            sql = select + ' FROM produtos_servicos_ean ps, ncm_v where ps.cd_ncm_prod_serv = cd_ncm_05'
+#            result_proxy = self.db_connection.execute(text(sql))               #executa a consulta
+#        
+#       
+#        
+#        self.fill_grid(result_proxy.fetchall())    #preenche o grid
+#
+#
+#    def make_sql_where(self, values_in_controls):
+#        '''
+#            Gera um lista de clausulas ligadas por "and" para compor um sql where
+#        '''
+#        sql_where = []
+#
+#        for key in values_in_controls:
+#            field_name = self.controls[key].field_name     #pega o name_field correspondente ao controle
+#            comparison_operator = self.controls[key].comparison_operator #peda o operador de comparação do campo
+#            sql_where.append(field_name + ' ' + comparison_operator + ' :'+ key  )
+#
+#        sql = " and ".join(sql_where)
+#
+#        return sql
+#
+#
+#    def get_values_controls(self):    
+#        '''
+#            Obtem os valor preenchidos nos controles, com isto não vai ser necessário saber em que
+#            tipo de controle esta cada valor.
+#        '''
+#        values = {}
+#        
+#        for key in self.controls:
+#            
+#            value = None
+#            
+#            if type(self.controls[key]) == tk.Entry:
+#                
+#                value = self.controls[key].get()
+#        
+#            elif type(self.controls[key]) == nfce_gui.ComboBoxDB:
+#                
+#                value = self.controls[key].get_key()
+#                
+#            if value:
+#                
+#                    values[key] = value 
+#                
+#        return values           #retorna um dicionário com a chave(nome do campo no BD) e o valor preenchido no widget    
+#        
+#    def get_ncm_01(self):
+#        sql = '''   SELECT distinct cd_ncm, concat(cd_ncm,' - ', ds_ncm_alt)
+#                    FROM nota_fiscal.ncm_01 n01, produtos_servicos ps 
+#                    where n01.cd_ncm = substring(ps.cd_ncm_prod_serv,1,2)
+#                    order by concat(cd_ncm,' - ', ds_ncm_alt)
+#              '''  
+#        self.ncm_01_list = self.db_connection.execute(sql).fetchall()
+#        
+#        
+#    def get_ncm_02(self):
+#        sql = '''   SELECT DISTINCT cd_ncm, concat(cd_ncm,' - ', ds_ncm), ds_ncm 
+#                    FROM nota_fiscal.ncm_02 n02, produtos_servicos ps 
+#                    WHERE n02.cd_ncm = substring(ps.cd_ncm_prod_serv,1,4)
+#                    ORDER BY concat(cd_ncm,' - ', ds_ncm);
+#              '''  
+#        self.ncm_02_list = self.db_connection.execute(sql).fetchall()
+#        
+#        
+#    def get_ncm_05(self):
+#        sql = '''   SELECT DISTINCT cd_ncm, concat(cd_ncm,' - ', ds_ncm) 
+#                    FROM nota_fiscal.ncm_05 n05, produtos_servicos ps 
+#                    WHERE n05.cd_ncm = substring(ps.cd_ncm_prod_serv,1,8)
+#                    ORDER BY concat(cd_ncm,' - ', ds_ncm);
+#              '''  
+#        self.ncm_05_list = self.db_connection.execute(sql).fetchall()
+#        
+#        
+#    def fill_grid(self, data_rows):
+#        '''
+#            Preenche um grid a partir de um data_rows passado
+#        '''
+#        #limpa o grid
+#        self.clear_grid()
+#        
+#        self.data_rows = data_rows
+#        frm = self.scrolled_frame
+#        #para cada linha retornada em data_rows
+#        for r, row in enumerate(data_rows, 2):
+#            
+#            e = tk.Entry(frm,width=14)
+#            e.grid(row = r,column=0)
+#            e.insert(0, row['cd_ean_prod_serv'])
+#            product_code = row['cd_ean_prod_serv']
+#            e.bind("<Key>", lambda a: "break")
+#                                                    
+#            e = tk.Entry(frm, width=30)
+#            e.grid(row=r, column=1)
+#            e.insert(0, row['ds_prod_serv'])
+#            e.bind("<Key>", lambda a: "break")
+#                
+#            e = tk.Entry(frm, width=9)
+#            e.grid(row=r, column=2)
+#            e.insert(0, row['cd_ncm_prod_serv'])
+#            e.bind("<Key>", lambda a: "break")
+#                                   
+#            e = tk.Entry(frm, width=40)
+#            e.grid(row=r, column=3)
+#            e.insert(0, row['ds_ncm_05'])
+#            e.bind("<Key>", lambda a: "break")
+#                                   
+#            image = PIL.Image.open('./static/check2.png')
+#            image2 = image.resize((22, 18), PIL.Image.ANTIALIAS)
+#            photo = PilImageTk.PhotoImage(image2)
+#            bt = tk.Button(frm, image=photo)
+#            bt.grid(row=r, column=4)   
+#            bt.image = photo            
+#            bt.config(command=(lambda product=product_code:open_product(self.master, self.db_connection, product)))
+#
+#
+#    def clear_grid(self): 
+#        
+#        for widget in self.scrolled_frame.grid_slaves():
+#            
+#            if int(widget.grid_info()['row']) > 1:
+#                
+#                widget.grid_forget()
+#
+#
+class FrameSearchProducts(FrameGridSearch):
     
-    def __init__(self, master, db_connection, **options):
+    def __init__(self, master, connection, **kwargs):
+        super().__init__(master, connection, grid_table=products_gtin_t, **kwargs)
         
-        super().__init__(master, **options)
+        fr = tk.Frame(self.form)
+        fr.pack(fill=tk.X)   
         
-        self.controls = {}
-        self.db_connection = db_connection
-        self.make_controls()
+        f = tk.Frame(fr)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Gtin:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        e = tk.Entry(f, width=14)
         
-        self.get_ncm_01()
-        self.get_ncm_02()
-        self.get_ncm_05()
+        cd_ean_produto = DBField(field_name='cd_ean_produto',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='Gtin',
+                        width=14,
+                        type_widget=tk.Entry)
+        self.add_widget(cd_ean_produto, e)
         
-        self.controls['cd_ncm_01'].fill_list(self.ncm_01_list)
-        self.controls['cd_ncm_02'].fill_list(self.ncm_02_list)
-        self.controls['cd_ncm_05'].fill_list(self.ncm_05_list)
-       
+        e.pack(side=tk.LEFT, pady=2)
         
-    def __make_widget(self, widget_type, index_name, field_name='', comparison_operator='=', **options):
+        f = tk.Frame(fr)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Descrição:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        e = tk.Entry(f, width=60)
+        e.pack(side=tk.LEFT, pady=2, padx=2) 
+        e.focus_set()
         
-        e = widget_type(self, **options)
-        e.index_name = index_name
-        e.comparison_operator=comparison_operator
+        ds_produto = DBField(field_name='ds_produto',
+                        comparison_operator = Field.OP_LIKE,
+                        label='Desc.',
+                        width=60,
+                        type_widget=tk.Entry)
+        self.add_widget(ds_produto, e)
         
-        if field_name:
+        f = tk.Frame(fr)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='NCM:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        e = tk.Entry(f, width=8)
+        e.pack(side=tk.LEFT, pady=2, padx=2)
+        
+        cd_ncm_produto = DBField(field_name='cd_ncm_produto',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='NCM',
+                        width=8,
+                        type_widget=tk.Entry)
+        self.add_widget(cd_ncm_produto, e)
+        
+        f = tk.Frame(fr)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Gtin Interno:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        e = tk.Entry(f, width=13)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        cd_ean_interno = DBField(field_name='cd_ean_interno',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='Gtin Int.',
+                        width=13,
+                        type_widget=tk.Entry)
+        self.add_widget(cd_ean_interno, e)
+        
+        f = tk.Frame(fr)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Qt. Embalag.:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        e = tk.Entry(f, width=5)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        qt_item_embalagem = DBField(field_name='qt_item_embalagem',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='Qt Embalag.',
+                        width=5,
+                        type_widget=tk.Entry)
+        self.add_widget(qt_item_embalagem, e)
+        
+#        f = tk.Frame(fr)
+#        f.pack(fill=tk.X)        
+#        tk.Label(f, text='Data Criação:', width=11,  anchor='e').pack(side=tk.LEFT , anchor='w')
+#        e = tk.Label(f, width=11, relief=tk.SUNKEN)
+#        e.pack(side=tk.LEFT, pady=2)
+        dt_criacao = DBField(field_name='dt_criacao',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='Data Criação.',
+                        width=10,
+                        type_widget=tk.Entry)
+#        self.add_widget(dt_criacao, e)
+        
+        self.add_widget_tool_bar(text='Detalhar', width = 10, command=(lambda param=0:(self.row_detail(param))))
+        self.add_widget_tool_bar(text='Novo', width = 10, command=(lambda param=1:(self.row_detail(param))))
+        
+        self.columns = [cd_ean_produto, ds_produto, cd_ncm_produto, cd_ean_interno, dt_criacao]
+        self.scroll.set_header(self.columns)
+        #self.order_by(self.grid_table.c.ds_produto) #fiquei de alterar o self.get_grid_dbdata
+    
+    
+    def row_detail(self, state):
+        if state: #state == 1;chama form de inclusão 
+           make_gtin_window(Frame=FormGtin, title='Gtin',keys=None, state=state) 
+        else:#state == 1;chama form de update
             
-            e.field_name = field_name
-        else:
+            product = self.get_grid_data_by_fieldname(self.last_clicked_row)
             
-            e.field_name = index_name        
-        
-        return e
-        
-    def make_controls(self, **options):
-        
-        if not options:
-            options['sticky'] = 'w'
-            options['padx'] = 2
-            options['pady'] = 2
-        
-        row = 0         
-        tk.Label(self, text='Ean:', anchor='e').grid(row=row, column=0)        
-        e = self.__make_widget(tk.Entry, 'cd_ean_prod_serv','','LIKE',  width=15)
-        self.controls[e.index_name] = e
-        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
-        
-        #row += 1
-        tk.Label(self, text='Desc. Prod.: ', anchor='e').grid(row=row, column=2)        
-        e = self.__make_widget(tk.Entry, 'ds_prod_serv','','LIKE', width=35)
-        self.controls[e.index_name] = e
-        e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
-        
-        row += 1
-        tk.Label(self, text='Ncm 01:', anchor='e').grid(row=row, column=0)        
-        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_01' , '', '=', state='readonly')
-        self.controls[e.index_name] = e
-        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
-        
-        #row += 1
-        tk.Label(self, text='Ncm 02:', anchor='e').grid(row=row, column=2)        
-        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_02', '', '=', width=35, state='readonly')
-        self.controls[e.index_name] = e
-        e.grid(row=row, column=3, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
-        
-        row += 1
-        tk.Label(self, text='Ncm 05:', anchor='e').grid(row=row,  column=0)        
-        e = self.__make_widget(nfce_gui.ComboBoxDB, 'cd_ncm_05' , '' ,'=', width=40, state='readonly')
-        self.controls[e.index_name] = e
-        e.grid(row=row, column=1, sticky=options['sticky'], padx=options['padx'], pady=options['pady'])
-        
-        row += 1
-        self.search_button = tk.Button(self, text = 'Procurar',  command=self.search)
-        self.search_button.grid(row=row, column=3, sticky='E', padx=options['padx'], pady=10)
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-        
-        row += 1
-         #cria um frame com barras de rolagem que irá conter o grid
-        scroll = ScrolledWindow(self, canv_w=200, canv_h = 200, scroll_h = False)
-        scroll.columnconfigure(0, weight=1)
-        scroll.grid(row=row, column=0, columnspan=4, sticky='WE')
-        #scroll.pack(side=LEFT, fill=X, expand=YES, padx=10, pady=10)
-        
-        self.scrolled_frame = tk.Frame(scroll.scrollwindow)       #Frame que ficará dentro do ScrolledWindows
-        self.scrolled_frame.grid(row = 0, column = 0)
+            make_gtin_window(Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':product['cd_ean_produto']}, state=state)
 
-
-    def make_header(self):
-        
-        e = tk.Entry(self.scrolled_frame, width=15, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=tk.W)
-        e.insert(0,'EAN')
-        
-        e = tk.Entry(self.scrolled_frame, width=25, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=1, sticky=tk.W)
-        e.insert(0,'Desc. Produto')
-        
-        e = tk.Entry(self.scrolled_frame, width=9, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=tk.W)
-        e.insert(0,'NCM')
-        
-        e = tk.Entry(self.scrolled_frame, width=45, relief=tk.FLAT, background='#d9d9d9')
-        e.grid(row=1, column=0, sticky=tk.W)
-        e.insert(0,'Desc. NCM')
-        
-        
-    def search(self):
-        
-        '''
-            Pesquisa os dados a partir dos campos preenchidos
-        '''
-        
-        values = self.get_values_controls()             #pega os valor preenchidos nos controles
-        
-        select = "SELECT cd_ean_prod_serv,ds_prod_serv,cd_ncm_prod_serv,ds_ncm_05 "
-        
-        if values:                                      #se algum campo foi preenchido
-        
-            where = self.make_sql_where(values)
-            
-            sql = select + ' FROM produtos_servicos_ean ps, ncm_v WHERE ps.cd_ncm_prod_serv = cd_ncm_05 and ' + where     #atenção a tabela do BD esta fixa, deve-se mudar a estratégia
-
-            result_proxy = self.db_connection.execute(text(sql), **values)               #executa a consulta    
-            
-        else:
-            
-            sql = select + ' FROM produtos_servicos_ean ps, ncm_v where ps.cd_ncm_prod_serv = cd_ncm_05'
-            result_proxy = self.db_connection.execute(text(sql))               #executa a consulta
-        
-       
-        
-        self.fill_grid(result_proxy.fetchall())    #preenche o grid
-
-
-    def make_sql_where(self, values_in_controls):
-        '''
-            Gera um lista de clausulas ligadas por "and" para compor um sql where
-        '''
-        sql_where = []
-
-        for key in values_in_controls:
-            field_name = self.controls[key].field_name     #pega o name_field correspondente ao controle
-            comparison_operator = self.controls[key].comparison_operator #peda o operador de comparação do campo
-            sql_where.append(field_name + ' ' + comparison_operator + ' :'+ key  )
-
-        sql = " and ".join(sql_where)
-
-        return sql
-
-
-    def get_values_controls(self):    
-        '''
-            Obtem os valor preenchidos nos controles, com isto não vai ser necessário saber em que
-            tipo de controle esta cada valor.
-        '''
-        values = {}
-        
-        for key in self.controls:
-            
-            value = None
-            
-            if type(self.controls[key]) == tk.Entry:
-                
-                value = self.controls[key].get()
-        
-            elif type(self.controls[key]) == nfce_gui.ComboBoxDB:
-                
-                value = self.controls[key].get_key()
-                
-            if value:
-                
-                    values[key] = value 
-                
-        return values           #retorna um dicionário com a chave(nome do campo no BD) e o valor preenchido no widget    
-        
-    def get_ncm_01(self):
-        sql = '''   SELECT distinct cd_ncm, concat(cd_ncm,' - ', ds_ncm_alt)
-                    FROM nota_fiscal.ncm_01 n01, produtos_servicos ps 
-                    where n01.cd_ncm = substring(ps.cd_ncm_prod_serv,1,2)
-                    order by concat(cd_ncm,' - ', ds_ncm_alt)
-              '''  
-        self.ncm_01_list = self.db_connection.execute(sql).fetchall()
-        
-        
-    def get_ncm_02(self):
-        sql = '''   SELECT DISTINCT cd_ncm, concat(cd_ncm,' - ', ds_ncm), ds_ncm 
-                    FROM nota_fiscal.ncm_02 n02, produtos_servicos ps 
-                    WHERE n02.cd_ncm = substring(ps.cd_ncm_prod_serv,1,4)
-                    ORDER BY concat(cd_ncm,' - ', ds_ncm);
-              '''  
-        self.ncm_02_list = self.db_connection.execute(sql).fetchall()
-        
-        
-    def get_ncm_05(self):
-        sql = '''   SELECT DISTINCT cd_ncm, concat(cd_ncm,' - ', ds_ncm) 
-                    FROM nota_fiscal.ncm_05 n05, produtos_servicos ps 
-                    WHERE n05.cd_ncm = substring(ps.cd_ncm_prod_serv,1,8)
-                    ORDER BY concat(cd_ncm,' - ', ds_ncm);
-              '''  
-        self.ncm_05_list = self.db_connection.execute(sql).fetchall()
-        
-        
-    def fill_grid(self, data_rows):
-        '''
-            Preenche um grid a partir de um data_rows passado
-        '''
-        #limpa o grid
-        self.clear_grid()
-        
-        self.data_rows = data_rows
-        frm = self.scrolled_frame
-        #para cada linha retornada em data_rows
-        for r, row in enumerate(data_rows, 2):
-            
-            e = tk.Entry(frm,width=14)
-            e.grid(row = r,column=0)
-            e.insert(0, row['cd_ean_prod_serv'])
-            product_code = row['cd_ean_prod_serv']
-            e.bind("<Key>", lambda a: "break")
-                                                    
-            e = tk.Entry(frm, width=30)
-            e.grid(row=r, column=1)
-            e.insert(0, row['ds_prod_serv'])
-            e.bind("<Key>", lambda a: "break")
-                
-            e = tk.Entry(frm, width=9)
-            e.grid(row=r, column=2)
-            e.insert(0, row['cd_ncm_prod_serv'])
-            e.bind("<Key>", lambda a: "break")
-                                   
-            e = tk.Entry(frm, width=40)
-            e.grid(row=r, column=3)
-            e.insert(0, row['ds_ncm_05'])
-            e.bind("<Key>", lambda a: "break")
-                                   
-            image = PIL.Image.open('./static/check2.png')
-            image2 = image.resize((22, 18), PIL.Image.ANTIALIAS)
-            photo = PilImageTk.PhotoImage(image2)
-            bt = tk.Button(frm, image=photo)
-            bt.grid(row=r, column=4)   
-            bt.image = photo            
-            bt.config(command=(lambda product=product_code:open_product(self.master, self.db_connection, product)))
-
-
-    def clear_grid(self): 
-        
-        for widget in self.scrolled_frame.grid_slaves():
-            
-            if int(widget.grid_info()['row']) > 1:
-                
-                widget.grid_forget()
 
 class FrameProductGrouping(FrameGridManipulation):
 
@@ -285,18 +391,21 @@ class FrameProductGrouping(FrameGridManipulation):
         tk.Label(f, text='Id:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = tk.Entry(f, width=6, state='readonly')
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('id_agrupamento', e)
+        
+        id_agrupamento = DBField(field_name='id_agrupamento', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
+        self.add_widget(id_agrupamento, e)
         
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Descrição:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = tk.Entry(f, width=50)
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('ds_agrupamento', e)
+        
+        ds_agrupamento = DBField(field_name='ds_agrupamento', comparison_operator = '=', label='Agrupamento', width=40, type_widget=tk.Entry)
+        self.add_widget(ds_agrupamento, e)
         
        
-        id_agrupamento = DBField(field_name='id_agrupamento', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
-        ds_agrupamento = DBField(field_name='ds_agrupamento', comparison_operator = '=', label='Agrupamento', width=40, type_widget=tk.Entry)
+        
         self.columns = [id_agrupamento, ds_agrupamento]
 
         self.scroll.set_header(self.columns)
@@ -316,32 +425,34 @@ class FrameClassProduct(FrameGridManipulation):
         tk.Label(f, text='Id:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = tk.Entry(f, width=6, state='readonly')
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('id_classe_produto', e)
+        
+        id_classe_produto = DBField(field_name='id_classe_produto', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
+        self.add_widget(id_classe_produto, e)
         
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Classe:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = tk.Entry(f, width=50)
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('ds_classe_produto', e)
+        
+        ds_classe_produto = DBField(field_name='ds_classe_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
+        self.add_widget(ds_classe_produto, e)
         
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Agrup.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
-        e = ComboBoxDB(f, width=40)
+        e = ComboBoxDB(f, width=40, state='readonly')
         e.ds_key = 'ds_agrupamento'
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('id_agrupamento', e)
+
+        id_agrupamento = DBField(field_name='id_agrupamento', comparison_operator = '=', label='Id. Agr.', width=6, type_widget=tk.Entry)
+        self.add_widget(id_agrupamento, e)
         s = select([agrupamento_produto_t.c.id_agrupamento,
                     agrupamento_produto_t.c.ds_agrupamento]).\
                     order_by(agrupamento_produto_t.c.ds_agrupamento)
         result = self.conn.execute(s)
         e.fill_list(result.fetchall())
         
-        
-        id_classe_produto = DBField(field_name='id_classe_produto', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
-        ds_classe_produto = DBField(field_name='ds_classe_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
-        id_agrupamento = DBField(field_name='id_agrupamento', comparison_operator = '=', label='Id. Agr.', width=6, type_widget=tk.Entry)
         ds_agrupamento = DBField(field_name='ds_agrupamento', comparison_operator = '=', label='Agrup.', width=30, type_widget=tk.Entry)
         self.columns = [id_classe_produto, ds_classe_produto, id_agrupamento, ds_agrupamento]
 
@@ -350,6 +461,63 @@ class FrameClassProduct(FrameGridManipulation):
         self.order_by(self.grid_table.c.ds_classe_produto)
         self.get_grid_dbdata()
 
+class FormGtin(FrameFormData):
+
+
+    def __init__(self, master, connection, keys, state=0, ):
+        super().__init__(master, connection, data_table=products_gtin_t, state=state, keys=keys)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtin:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        cd_ean_produto = DBField(field_name='cd_ean_produto', comparison_operator = '=', label='cd_ean_produto', width=14, type_widget=tk.Entry)
+        self.add_widget(cd_ean_produto, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Produto:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=80)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        ds_produto = DBField(field_name='ds_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
+        self.add_widget(ds_produto, e)
+
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='NCM.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        cd_ncm_produto = DBField(field_name='cd_ncm_produto', comparison_operator = '=', label='Classif.', width=5, type_widget=ChkButton)
+        self.add_widget(cd_ncm_produto, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Manual.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = ChkButton(f, width=1, anchor="w")
+        e.pack(side=tk.LEFT, pady=2)
+        
+        manual = DBField(field_name='manual', comparison_operator = '=', label='Manual.', width=5, type_widget=ChkButton)
+        self.add_widget(manual, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtin Interno:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        cd_ean_interno = DBField(field_name='cd_ean_interno', comparison_operator = '=', label='cd_ean_interno', width=14, type_widget=tk.Entry)
+        self.add_widget(cd_ean_interno, e)
+
+        
+        if self.state == self.STATE_UPDATE:
+            data = self.get_form_dbdata(self.keys) 
+            self.set_form_dbdata(data)
+
+        
 
 class FrameProduct(FrameGridManipulation):
 
@@ -364,40 +532,46 @@ class FrameProduct(FrameGridManipulation):
         tk.Label(f, text='Id:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = tk.Entry(f, width=10, state='readonly')
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('id_produto', e)
+        
+        id_produto = DBField(field_name='id_produto', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
+        self.add_widget(id_produto, e)
         
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Produto:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = tk.Entry(f, width=50)
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('ds_produto', e)
         
+        ds_produto = DBField(field_name='ds_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
+        self.add_widget(ds_produto, e)
+
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Classif.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
         e = ChkButton(f, width=1, anchor="w")
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('classificado', e)
+        
+        classificado = DBField(field_name='classificado', comparison_operator = '=', label='Classif.', width=5, type_widget=ChkButton)
+        self.add_widget(classificado, e)
         
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Classe:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
-        e = ComboBoxDB(f, width=40)
+        e = ComboBoxDB(f, width=40, state='readonly')
         e.ds_key = 'ds_classe_produto'
         e.pack(side=tk.LEFT, pady=2)
-        self.add_widget('id_classe_produto', e)
+        
+        id_classe_produto = DBField(field_name='id_classe_produto', comparison_operator = '=', label='Cd.Classe', width=8, type_widget=tk.Entry)
+        self.add_widget(id_classe_produto, e)
+        
         s = select([classe_produto_t.c.id_classe_produto,
                     classe_produto_t.c.ds_classe_produto]).\
                     order_by(classe_produto_t.c.ds_classe_produto)
         result = self.conn.execute(s)
-        e.fill_list(result.fetchall())
-        
-        id_produto = DBField(field_name='id_produto', comparison_operator = '=', label='id', width=10, type_widget=tk.Entry)
-        ds_produto = DBField(field_name='ds_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
+        e.fill_list(result.fetchall())        
+
         ds_classe_modelo = DBField(field_name='ds_classe_produto', comparison_operator = '=', label='Classe', width=30, type_widget=tk.Entry)
-        id_classe_produto = DBField(field_name='id_classe_produto', comparison_operator = '=', label='Cd.Classe', width=8, type_widget=tk.Entry)
-        classificado = DBField(field_name='classificado', comparison_operator = '=', label='Classif.', width=5, type_widget=ChkButton)
+        
         self.columns = [id_produto, ds_produto, ds_classe_modelo,id_classe_produto, classificado]
 
         self.scroll.set_header(self.columns)
@@ -1208,32 +1382,42 @@ def open_product(master, conn, product_code):
     nfce_gui.open_modal(tl)
     
 
-def search_product(master):
-    
-    win = tk.Toplevel(master)
-    win.title('Consultar Produto')
-    win.geometry('830x380')
-    
-    f = FrameSearchProduct(win,master.conn)
+#def search_product(master):
+#    
+#    win = tk.Toplevel(master)
+#    win.title('Consultar Produto')
+#    win.geometry('830x380')
+#    
+#    f = FrameSearchProduct(win,master.conn)
+#
+#    
+#    f.pack(fill = tk.X)
+#    show_modal_win(win)
 
-    
-    f.pack(fill = tk.X)
-    show_modal_win(win)
 
-
-def testeFormSimpleDialog():
-    
-    root = tk.Tk()
-    root.title('Produtos')
-    #root.bind('<Configure>', configure) 
-    #root.geometry('830x380')
-    
+#def testeFormSimpleDialog():
+#    
+#    root = tk.Tk()
+#    root.title('Produtos')
+#    #root.bind('<Configure>', configure) 
+#    #root.geometry('830x380')
+#    
 #    engine = nfce_db.get_engine_bd()    
-    conn = engine.connect()
-    
-    f = FrameSearchProduct(root,conn)
-    f.pack(fill = tk.X)
-    root.mainloop()
+#    conn = engine.connect()
+#    
+#    f = FrameSearchProduct(root,conn)
+#    f.pack(fill = tk.X)
+#    root.mainloop()
+
+def make_gtin_window(Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':'7894321218526'}, state=1):
+    root = tk.Tk()
+    root.conn = engine.connect()
+    root.title(title)
+    if Frame:
+        f = Frame(root, root.conn, keys, state)
+        f.pack(fill = tk.X)
+        root.resizable(False, False)
+        root.mainloop()
 
 def make_product_grouping_window(master=None):
     make_window(master=master, Frame=FrameProductGrouping, title='Agrupamento')
@@ -1269,13 +1453,18 @@ def make_product_sem_gtin_product_window(master=None, conn=None):
 
 def make_product_window(master=None):
     make_window(master=master, Frame=FrameProduct, title='Produtos')   
+def make_search_products_window(master=None):
+    make_window(master=master, Frame=FrameSearchProducts, title='Pesquisa Produtos')
     
 def main():    
-    #make_product_gtin_product_window()
-    make_product_grouping_window()
+#    make_product_gtin_product_window()
+#    make_product_grouping_window()
+    make_gtin_window()
+#    make_product_window()
+    
 
 if __name__ == '__main__':
-    #make_product_window()
+    
     #make_class_product_window()
     #make_product_gtin_product_window()
     #make_product_sem_gtin_product_window()

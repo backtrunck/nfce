@@ -1,33 +1,48 @@
 #!/usr/bin/env python3
-import nfce_gui
-import nfce_db
-import nfce_estoque
-import nfce_produtos
-import import_invoice
-import product_scraper
-import invoice_scraper
 import tkinter as tk
+import nfce_db
 
 def main():
     
+    try:
+        conn = nfce_db.get_connection()
+    except Exception as e:
+        msg = e.args
+        msg_error = 'Não foi possível conectar com o servidor de banco de  dados'
+        
+        root = tk.Tk()
+        root.title('Erro')
+        f = tk.Frame(root)
+        f.pack()
+        tk.Label(f, text = msg_error).pack()
+        tk.Label(f, text=msg).pack()
+        tk.Button(f, text="Sair", command=root.quit).pack()
+        root.mainloop()
+        return
+        
     root = tk.Tk()
-    root.title('Controle de Compras')
+    root.title('Controle de Compras v0.1')
     root.geometry("900x700")
-#    root.iconbitmap('./static/icons8-carrinho-de-compras-carregado-48.xbm')
     img = tk.PhotoImage(file='./static/icons8-carrinho-de-compras-carregado-48.png')
     root.tk.call('wm', 'iconphoto', root._w, img)
-    engine = nfce_db.get_engine_bd()
+    root.conn = conn
+#    engine = nfce_db.get_engine_bd()
+    import nfce_gui
+    import nfce_estoque
+    import nfce_produtos
+    import import_invoice
+    import product_scraper
+    import invoice_scraper
+   
+#    root.conn = engine.connect()
     
-    root.conn = engine.connect()
-  
     top = tk.Menu(root)
     root.config(menu=top)
     
     view=tk.Menu(top)
-#    view.add_command(label='Consultar Nota Fiscal',  command=(lambda master = root: nfce_gui.search_invoice(master)), underline=0)
-    view.add_command(label='Consultar Nota Fiscal',  command=(lambda master = root: nfce_gui.make_class_search_invoice_window(master)), underline=0)
-    
-    view.add_command(label='Consultar Produto',  command=(lambda master = root: nfce_produtos.search_product(master)), underline=0)
+
+    view.add_command(label='Consultar Nota Fiscal',  command=(lambda master = root: nfce_gui.make_class_search_invoice_window(master)), underline=0)    
+    view.add_command(label='Consultar Produto',  command=(lambda master = root: nfce_produtos.make_search_products_window(master)), underline=0)    
     view.add_command(label='Ver Imagens de Produtos',  command=(lambda master = root, conn=None: product_scraper.products_images_search(master)), underline=0)    
     view.add_command(label='Sair', command=root.quit)
     

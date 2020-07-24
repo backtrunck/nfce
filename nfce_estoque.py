@@ -2,8 +2,9 @@ import datetime
 import tkinter as tk
 from tkinter.messagebox import showwarning
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
+from interfaces_graficas import show_modal_win, ChkButton
 from util import string_to_date, formatar_data, is_valid_date
-from interfaces_graficas.db import FrameGridSearch, DBField, ComboBoxDB
+from interfaces_graficas.db import FrameGridSearch, DBField, ComboBoxDB, FrameFormData
 from nfce_models import engine, \
                         products_exit_t,\
                         products_exit_v,\
@@ -13,17 +14,76 @@ from nfce_models import engine, \
                         products_v,\
                         classe_produto_t,\
                         agrupamento_produto_t, \
-                        nota_fiscal_produtos_v
+                        ajuste_estoque_t
 from nfce_db import PRODUCT_NO_CLASSIFIED
-from nfce_gui import dlg_itens_invoice
-from interfaces_graficas import show_modal_win
-from sqlalchemy.sql import select, and_
+
+from sqlalchemy.sql import select
 from fields import Field
 #from collections import namedtuple
 
+class FormStockAdjustment(FrameFormData):
 
 
+    def __init__(self, master, connection, keys, state=0, ):
+        super().__init__(master, connection, data_table=ajuste_estoque_t, state=state, keys=keys)
+        label_width = 14
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtin:', width=label_width,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14, state='readonly')
+        e.pack(side=tk.LEFT, pady=2)
+        
+        cd_ean_produto = DBField(field_name='cd_ean_produto', 
+                                 comparison_operator = '=', 
+                                 label='cd_ean_produto', 
+                                 width=14, 
+                                 type_widget=tk.Entry)
+        self.add_widget(cd_ean_produto, e)
+        
+        
+        stm = select([products_gtin_t.c.ds_produto]).\
+                    where(products_gtin_t.c.cd_ean_produto == keys['cd_ean_produto'])
+        result = self.conn.execute(stm).fetchone()
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Produto:', width=label_width,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Label(f, width=60, text = result['ds_produto'], anchor='w', relief=tk.SUNKEN)
+        e.pack(side=tk.LEFT, pady=2)
+        
 
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Quant.:', width=label_width,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        qt_produto = DBField(field_name='qt_produto', 
+                                 comparison_operator = '=', 
+                                 label='Quant.', 
+                                 width=5, 
+                                 type_widget=tk.Entry)
+                                 
+        self.add_widget(qt_produto, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Estoque Inicial:', width=label_width,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=8)
+        e.pack(side=tk.LEFT, pady=2)
+        
+        estoque_inicial = DBField(field_name='estoque_inicial', 
+                                comparison_operator = '=', 
+                                label='Est. Inicial.', 
+                                width=5, 
+                                type_widget=tk.Entry)
+                                
+        self.add_widget(estoque_inicial, e)
+
+        
+        if self.state == self.STATE_UPDATE:
+            data = self.get_form_dbdata(self.keys) 
+            self.set_form_dbdata(data)
 
 
 class FrameProductExit(tk.Frame):    
@@ -703,6 +763,7 @@ class FrameProductGtin(tk.Frame):
                 
                 widget.grid_forget()
 
+
 class FrameSearchStock(FrameGridSearch):
     def __init__(self, master, connection, **kwargs):
         super().__init__(master, connection, grid_table=stock_v, **kwargs)
@@ -711,7 +772,7 @@ class FrameSearchStock(FrameGridSearch):
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Agrupamento:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
-        e = ComboBoxDB(f, width=40)
+        e = ComboBoxDB(f, width=40, state='readonly')
         e.pack(side=tk.LEFT, pady=2)
         product_group = DBField(field_name='id_agrupamento',
                         comparison_operator = Field.OP_EQUAL,
@@ -730,7 +791,7 @@ class FrameSearchStock(FrameGridSearch):
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Classe:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
-        e = ComboBoxDB(f, width=40)
+        e = ComboBoxDB(f, width=40, state='readonly')
         e.pack(side=tk.LEFT, pady=2)
         product_class = DBField(field_name='id_classe_produto', 
                                  comparison_operator = Field.OP_EQUAL,
@@ -749,7 +810,7 @@ class FrameSearchStock(FrameGridSearch):
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Produto:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
-        e = ComboBoxDB(f, width=40)
+        e = ComboBoxDB(f, width=40, state='readonly')
         e.pack(side=tk.LEFT, pady=2)
         product = DBField(field_name='id_produto', 
                                      comparison_operator = Field.OP_EQUAL,
@@ -777,6 +838,22 @@ class FrameSearchStock(FrameGridSearch):
                                         width=14, 
                                         type_widget=tk.Entry)        
         self.add_widget(product_gtin, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Em estoque:', width=11, anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.stocked = ChkButton(f, width=1, anchor='w')
+#        self.stocked.var = tk.IntVar()
+#        self.stocked.config(variable=self.stocked.var)
+        self.stocked.pack(side=tk.LEFT, pady=2)
+        self.stocked.set()
+        self.pack()
+        stocked_field = DBField(field_name='saldo',
+                                        comparison_operator = Field.OP_GREATER,
+                                        label='saldo',
+                                        width=14, 
+                                        type_widget=tk.Entry)  
+        self.add_widget(stocked_field, self.stocked)
         
         
         self.add_widget_tool_bar(text='Detalhar', width = 10, command=self.row_detail)
@@ -810,24 +887,45 @@ class FrameSearchStock(FrameGridSearch):
         self.scroll.set_header(self.columns)
                
     def row_detail(self):
-        nu_nfce = self.get_grid_data(self.last_clicked_row)
-        stm = select(nota_fiscal_produtos_v.c).where(and_(nota_fiscal_produtos_v.c['cd_uf'] == nu_nfce['cd_uf'], 
-                                                     nota_fiscal_produtos_v.c['cd_modelo'] == nu_nfce['cd_modelo'], 
-                                                     nota_fiscal_produtos_v.c['serie'] == nu_nfce['serie'], 
-                                                     nota_fiscal_produtos_v.c['nu_nfce'] == nu_nfce['nu_nfce'], 
-                                                     nota_fiscal_produtos_v.c['cnpj'] == nu_nfce['cnpj']))
+        #nu_nfce = self.get_grid_data(self.last_clicked_row)
+        product = self.get_grid_data_by_fieldname(self.last_clicked_row)
+        keys = {}
+        keys['cd_ean_produto'] = product['cd_gtin']
+        stm = select([ajuste_estoque_t.c.cd_ean_produto]).\
+                    where(ajuste_estoque_t.c.cd_ean_produto == keys['cd_ean_produto'])
+        result_proxy = self.conn.execute(stm)
+        if result_proxy.rowcount == 0:
+            ins = ajuste_estoque_t.insert().values(cd_ean_produto=keys['cd_ean_produto'],\
+                                                     qt_produto=0, 
+                                                     estoque_inicial=0)
+            self.conn.execute(ins)
+            
+        make_stock_adjustment_window(master=self, keys=keys)
+        print("passou")
+        self.search()
+    
+    def search(self):
+        form_data = self.get_form_data() #pega os dados do formulario
+        self.set_data_columns()          #ajusta o select da pesquisa (cria um novo self.grid_select_stm)
+               
+        #bloco para tratar do saldo (em estoque), não daria pra fazer o filtro da forma normal
+        if form_data['saldo']:
+            self.set_filter({'saldo':0})
+        del form_data['saldo']          #retira o campo saldo do dict, para que não gere novo filtro
+        #fim do bloco
         
-        #dlg_itens_invoice
-        result = self.conn.execute(stm).fetchall()
-        #print(result)
-        dlg_itens_invoice(result, self.conn)
+        self.set_filter(form_data)          #com os dados do formulario aplica os filtros(em self.grid_select_stm)
+        self.get_grid_dbdata()              #Obtem os dados do banco de dados
+
 
 
 def make_product_exit_window(master=None):
     make_window(master=master, Frame=FrameProductExit, title='Saída Produtos')
 
+
 def make_product_gtin_window(master=None):
     make_window(master=master, Frame=FrameProductGtin, title='Produtos Gtin')
+
 
 def make_window(master=None, Frame=None, title=None, resizable=True):
     if master:
@@ -849,8 +947,26 @@ def make_window(master=None, Frame=None, title=None, resizable=True):
             root.mainloop()
     return
 
+
+
 def make_class_search_stock_window(master=None):
     make_window(master=master, Frame=FrameSearchStock, title='Pesquisa Estoque', resizable=False)
+
+def make_stock_adjustment_window(master = None, Frame=FormStockAdjustment, title='Ajuste de Estoque',keys={'cd_ean_produto':'7894321218526'}):
+    if master:
+        root = tk.Toplevel(master)
+        root.conn = master.conn
+    else:
+        root = tk.Tk()
+    
+    root.conn = engine.connect()
+    root.title(title)
+    if Frame:
+        f = Frame(root, root.conn, keys)
+        f.pack(fill = tk.X)
+        root.resizable(False, False)
+        show_modal_win(root)
+        #root.mainloop()
 
 def main():
     make_class_search_stock_window()
