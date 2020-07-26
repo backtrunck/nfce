@@ -48,10 +48,18 @@ class ProdutoServico(object):
         return ('<Nota Fiscal {}, Emitida em: '+\
                 '{:%d/%m/%Y %H:%M} Produto: {} Valor: {}>')\
                 .format(self.numero,\
-                        self.dt_emissao,\
+                        self.cd_prod_serv_ajuste,\
                         self.ds_prod_serv, \
                         self.vl_prod_serv)
                         
+class ProdutoServicoAjuste(object):
+    def __repr__(self):
+        return ('<Prod. Serv. Ajuste:Cnpj {}, Prod. Serv: '+\
+                '{} Produto: {} Gtin: {}>')\
+                .format(self.cnpj,\
+                        self.ds_prod_serv,\
+                        self.cd_ean_ajuste)
+    
 class ProdutoGtin(object):
     def __repr__(self):
         return ('<Produto Gtim {} - {}> '\
@@ -65,19 +73,21 @@ class ProdutosProdServSemGtin(object):
                 .format(self.id_produto,\
                         self.cnpj, self.cd_prod_serv))
 
+
 class ProdutosNcm(object):
     def __repr__(self):
         return ('<Produto x Ncm, NCM: {}, EAN: {}> '\
                 .format(self.cd_ncm,\
                         self.id_produto))
 
+
 class ProdutoProdutoGtin(object):
     def __repr__(self):
         return ('<Produto x Gtim, Id Produto: {}, EAN: {}> '\
                 .format(self.id_produto,\
                         self.cd_ean_produto))
-     
-        
+
+
 class NotaFiscal(object):
     def __repr__(self):
         return ('<Nota Fiscal {}, Emitida em: '+\
@@ -86,6 +96,8 @@ class NotaFiscal(object):
                         self.dt_emissao,\
                         self.cnpj,
                         self.vl_total)
+
+
 products_t = Table('produtos', meta_data, autoload=True, autoload_with=engine)
 products_gtin_t = Table('produtos_gtin', meta_data, autoload=True, autoload_with=engine)
 products_sem_gtin_products_t = Table('produtos_x_prod_serv_sem_gtin', meta_data, autoload=True, autoload_with=engine)
@@ -93,6 +105,7 @@ products_gtin_products_t = Table('produtos_x_produtos_gtin', meta_data, autoload
 classe_produto_t = Table('classe_produto', meta_data, autoload=True, autoload_with=engine)
 agrupamento_produto_t = Table('agrupamento_produto', meta_data, autoload=True, autoload_with=engine)
 ajuste_estoque_t = Table('ajuste_estoque', meta_data, autoload=True, autoload_with=engine)
+adjust_prod_serv_t = Table('produtos_servicos_ajuste', meta_data, autoload=True, autoload_with=engine)
 
 nota_fiscal_produtos_v = Table('nota_fiscal_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_sem_gtin_products_v = Table('produtos_sem_gtin_x_produtos_v', meta_data, autoload=True, autoload_with=engine)
@@ -114,6 +127,7 @@ mapper(ProdutosProdServSemGtin, products_sem_gtin_products_t)
 mapper(ProdutosNcm, Table('produtos_x_ncm_05', meta_data, autoload=True, autoload_with=engine))
 mapper(ProdutoProdutoGtin, products_gtin_products_t)
 mapper(Produtos, products_t)
+mapper(ProdutoServicoAjuste, adjust_prod_serv_t )
 
 
 Session = sessionmaker(bind=engine, autoflush=True)

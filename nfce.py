@@ -13,7 +13,8 @@ from nfce_models import Session,\
                         ProdutosProdServSemGtin,\
                         ProdutosNcm,\
                         ProdutoProdutoGtin,\
-                        ProdutoGtin
+                        ProdutoGtin, \
+                        ProdutoServicoAjuste
 
 
 class NfceArquivoInvalido(Exception):
@@ -352,29 +353,25 @@ class NfceParse():
                         dado_produtos_servicos = {}
                         for chave,  campo  in dado_produtos_servicos_1.items():
                             dado_produtos_servicos[chave] = campo
-                            #str_log += str(chave) + ' = ' + str(campo) + ' '                    
                             
                         if dado_produtos_servicos_2:
                             for chave,  campo  in dado_produtos_servicos_2.items():
                                 dado_produtos_servicos[chave] = campo
-                                #str_log += str(chave) + ' = ' + str(campo) + ' '
                                 
                         dados_produtos_servicos.append(dado_produtos_servicos)
                         
                     if dados_produtos_icms:
                         for chave,  valor in dados_produtos_icms.items():
                             dado_produtos_servicos[chave] = valor
-                            #str_log += str(chave) + ' = ' + str(campo) + ' '
                             
                     if dados_produtos_cofins:   
                         for chave,  valor in dados_produtos_cofins.items():
                             dado_produtos_servicos[chave] = valor
-                            #str_log += str(chave) + ' = ' + str(campo) + ' '
                         
                     if dados_produtos_pis:   
                         for chave,  valor in dados_produtos_pis.items():
                             dado_produtos_servicos[chave] = valor
-                            #str_log += str(chave) + ' = ' + str(campo) + ' '
+                            
                     self.log.info('produtos_servicos;' + str(dado_produtos_servicos))
             else:
                     self.log.info('-;produtos e serviços da nota, não foram encontradas')
@@ -812,12 +809,13 @@ class NfceBd():
             self.__write_error_log(f'-;Erro: {sys.exc_info()[0]} ao inserir dados sobre o transporte da nota fiscal: ' + str(e))
             raise(e)
 
-
+   
     def insert_products_data_in_db(self, products_data, session): 
         try:
             if products_data:
-                query = session.query(ProdutoServico)
+                query = session.query(ProdutoServico)                
                 for product_data in products_data:
+                    self.adjust_prod_serv(products_data, session)    #ajuste de produtos e serviços
                     query = query.filter( ProdutoServico.nu_nfce == product_data['nu_nfce'], 
                                           ProdutoServico.cd_uf == product_data['cd_uf'], 
                                           ProdutoServico.serie == product_data['serie'], 
@@ -825,6 +823,7 @@ class NfceBd():
                                           ProdutoServico.cd_modelo == product_data['cd_modelo'], 
                                           ProdutoServico.nu_prod_serv == product_data['nu_prod_serv'])
                     if query.count() == 0:   #ProdutoServico não encontrado?(inseri!)
+                        
                         self.insert_product_gtin_data(product_data, session)
                         produto = ProdutoServico()
                         produto.nu_nfce = product_data['nu_nfce']
@@ -858,6 +857,7 @@ class NfceBd():
                         produto.vl_aprox_tributos_prod_serv = product_data['vl_aprox_tributos_prod_serv']
                         produto.nu_fci_prod_serv = product_data['nu_fci_prod_serv']
                         produto.cest_prod_serv = product_data['cest_prod_serv']
+                        produto.cd_ean_prod_serv_original = product_data['cd_ean_prod_serv']
                         session.add(produto)
                         self.__write_info_log('-;Inserido Produto: {}-{} Gtin:{} Ncm:{}'.\
                             format(product_data['nu_prod_serv'], 
@@ -1284,52 +1284,39 @@ class NfceBd():
             tenha GTIM, inserie-o em produtos_servicos_sem_gtim
             
         '''
-        
-#        cursor = self.conexao.cursor()
-        
-        #obtem os dados dos produtos na nota fiscal
+
         produtos_servicos = self.nota_fiscal.obter_dados_produtos_e_servicos()
-        
-#        self.inserir_produtos_servicos_ean(produtos_servicos) #inseri em produtos_servicos_ean
-#        self.inserir_produtos_servicos_sem_gtim(produtos_servicos) #inseri em produtos_servicos_gtim
+
         self.insert_products_data_in_db(produtos_servicos)
-#        for prod_serv in produtos_servicos:     
-            
-            
-#            self.incluir_chaves(prod_serv)
-#            #verifica se já tem o produto na tabela
-#            sql =   'select nu_nfce                     \
-#                    from produtos_servicos              \
-#                    where   cd_uf = %s and              \
-#                            cnpj = %s and               \
-#                            nu_nfce = %s and            \
-#                            serie = %s and              \
-#                            cd_modelo = %s and          \
-#                            nu_prod_serv = %s'
-#                        
-#            cursor.execute(sql, (
-#                                prod_serv['cd_uf'], 
-#                                prod_serv['cnpj'], 
-#                                prod_serv['nu_nfce'],
-#                                prod_serv['serie'],
-#                                prod_serv['cd_modelo'], 
-#                                prod_serv['nu_prod_serv'], ))
-#                        
-#            
-#            cursor.fetchall()
-#                                    
-#            if cursor.rowcount == 0:                                            #não tem o produto?
-#                
-#                sql = self.montar_insert(prod_serv, 'produtos_servicos    ')    
-#                cursor.execute(sql[0], sql[1])                                  #inseri o produto
-#            
-#            else:
-#                print('Produto {} já incluido na Nota Fiscal {}'.format(prod_serv['ds_prod_serv'],  prod_serv['nu_nfce']))
+
+
+    def adjust_prod_serv(self, product_data, session):
+        query = session.query(ProdutoServicoAjuste)
+        query = query.filter( ProdutoServicoAjuste.cnpj == product_data['cd_prod_serv'], 
+                                          ProdutoServicoAjuste.cd_prod_serv_ajuste == product_data['cd_prod_serv'])
+
+        if query.count() == 0:   #ProdutoServico não encontrado?(inseri!)
+            prod_serv_ajuste = ProdutoServicoAjuste()   #inseri na tabela de ajuste
+            prod_serv_ajuste.cnpj =  product_data['cd_prod_serv']
+            prod_serv_ajuste.cd_prod_serv_ajuste = product_data['cd_prod_serv'] 
+            prod_serv_ajuste.cd_ean_ajuste = product_data['cd_ean_prod_serv']
+            session.add(prod_serv_ajuste)
+            product_data['cd_ean_prod_serv_original'] = product_data['cd_ean_prod_serv']
+            return product_data            
+        else:
+            result = query.first()
+            product_data['cd_ean_prod_serv_original'] = product_data['cd_ean_prod_serv']
+            product_data['cd_ean_prod_serv'] = result.cd_ean_prod_serv
+            return product_data
 
     def criar_conexao(self):
         pass
+
+
     def gravar_dados_nfce(self):
         pass
+
+
     def get_max_manual_ean(self, cursor):
         
         sql = 'select max(cd_gtim_prod_serv) from nota_fiscal.produtos_servicos_sem_gtim where substring(cd_gtim_prod_serv,1,1)=\'X\';'
