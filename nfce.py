@@ -1,5 +1,5 @@
-import re, os, datetime, util, sys
-import logging
+import re, os, datetime, util, sys, logging, shutil
+import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
 from nfce_db import PRODUCT_NO_CLASSIFIED
@@ -259,6 +259,7 @@ class NfceParse():
     def obter_dados_nfc_e(self):
         '''
             Obtém os dados da nota fiscal a partir dos dados contindos em <div id="NFe">
+             (dt_emissao,dt_saida,vl_total)
         '''
         div = self._obter_informacao_por_id('NFe', 'Núḿero da Nota')
         
@@ -605,7 +606,7 @@ class NfceParse():
     
 class NfceBd():
     def __init__(self, logger=None):
-        self.session = Session()
+        self.session = Session(autocommit=False)
         self.logger = logger
         
     def __write_info_log(self,msg):
@@ -619,32 +620,38 @@ class NfceBd():
 
     
     def insert_full_invoice_in_db(self, invoice_parser):
+        '''
+            Grava na base de dados informações sobre a nota fiscal que vai ser lida de invoice_parser
+            parâmetros:
+                (invoice_parser:object NfceParse) objeto responsável por ler o html de nota fiscal
         
-        supplier_data = invoice_parser.obter_dados_emitente()
-        self.insert_supplier_data_in_db(supplier_data, self.session)
+        '''
         
-        acess_key = invoice_parser.obter_chave_acesso()  
-        invoice_data = invoice_parser.obter_dados_nfe_codigo_acesso(acess_key)
-        extra_data = invoice_parser.obter_informacoes_complementares()
+        supplier_data = invoice_parser.obter_dados_emitente()   #lê os dados do emitente da nota 
+        self.insert_supplier_data_in_db(supplier_data, self.session) #grava na base de dados 
+        
+        acess_key = invoice_parser.obter_chave_acesso()  #pega a chave de acesso da nota fiscal
+        invoice_data = invoice_parser.obter_dados_nfe_codigo_acesso(acess_key) #pega os dados da nota a partir da chave
+        extra_data = invoice_parser.obter_informacoes_complementares() #pega as informações complementares da nota fiscal 
         invoice_data['ds_informacoes_complementares'] = extra_data
-        self.insert_invoice_data_in_db(invoice_data, self.session)
+        self.insert_invoice_data_in_db(invoice_data, self.session) #grava na base de dados a nota fiscal
         
-        payment_data = invoice_parser.obter_dados_cobranca()
-        self.__include_keys(payment_data, invoice_parser)
-        self.insert_payment_data_in_db(payment_data, self.session)
+        payment_data = invoice_parser.obter_dados_cobranca()    #pega os dados da cobrança da nota fiscal 
+        self.__include_keys(payment_data, invoice_parser) #inclui as chaves primárias da nota fiscal
+        self.insert_payment_data_in_db(payment_data, self.session) #grava na base de dados os dados relativos ao pagamento da nota
         
-        total_data = invoice_parser.obter_dados_valores_totais()
-        self.__include_keys(total_data, invoice_parser)
-        self.insert_total_data_in_db(total_data, self.session)
+        total_data = invoice_parser.obter_dados_valores_totais()  #pega os dados relativos ao total da nota fiscal
+        self.__include_keys(total_data, invoice_parser)        #inclui as chaves primárias da nota fiscal
+        self.insert_total_data_in_db(total_data, self.session) #grava na base de dados os dados relativos ao total da nota
         
-        delivery_data = invoice_parser.obter_dados_transporte()
-        self.__include_keys(delivery_data, invoice_parser)
-        self.insert_delivery_data_in_db(delivery_data, self.session)
+        delivery_data = invoice_parser.obter_dados_transporte() #paga os dados relativos ao transporte da nota fiscal 
+        self.__include_keys(delivery_data, invoice_parser)#pega os dados relativos 
+        self.insert_delivery_data_in_db(delivery_data, self.session) #grava na base de dados os dados relativos ao transporte
         
-        products_data = invoice_parser.obter_dados_produtos_e_servicos()
+        products_data = invoice_parser.obter_dados_produtos_e_servicos() #pega os dados relativos aos produtos e serviços
         for product_data in products_data:
-            self.__include_keys(product_data, invoice_parser)
-        self.insert_products_data_in_db(products_data, self.session)
+            self.__include_keys(product_data, invoice_parser)  #inclui as chaves primárias da nota fiscal
+        self.insert_products_data_in_db(products_data, self.session)  #grava na base de dados os dados relativos aos produtos
         
     def insert_supplier_data_in_db(self, supplier_data, session):
         try:
@@ -815,7 +822,7 @@ class NfceBd():
             if products_data:
                 query = session.query(ProdutoServico)                
                 for product_data in products_data:
-                    self.adjust_prod_serv(products_data, session)    #ajuste de produtos e serviços
+                    
                     query = query.filter( ProdutoServico.nu_nfce == product_data['nu_nfce'], 
                                           ProdutoServico.cd_uf == product_data['cd_uf'], 
                                           ProdutoServico.serie == product_data['serie'], 
@@ -824,7 +831,8 @@ class NfceBd():
                                           ProdutoServico.nu_prod_serv == product_data['nu_prod_serv'])
                     if query.count() == 0:   #ProdutoServico não encontrado?(inseri!)
                         
-                        self.insert_product_gtin_data(product_data, session)
+                        self.insert_product_gtin_data(product_data, session) #inseri produtos com códigos de barras
+                        self.adjust_prod_serv(product_data, session)    #ajuste de produtos e serviços
                         produto = ProdutoServico()
                         produto.nu_nfce = product_data['nu_nfce']
                         produto.cd_uf = product_data['cd_uf']
@@ -1292,21 +1300,26 @@ class NfceBd():
 
     def adjust_prod_serv(self, product_data, session):
         query = session.query(ProdutoServicoAjuste)
-        query = query.filter( ProdutoServicoAjuste.cnpj == product_data['cd_prod_serv'], 
+        query = query.filter( ProdutoServicoAjuste.cnpj == product_data['cnpj'], 
                                           ProdutoServicoAjuste.cd_prod_serv_ajuste == product_data['cd_prod_serv'])
 
         if query.count() == 0:   #ProdutoServico não encontrado?(inseri!)
             prod_serv_ajuste = ProdutoServicoAjuste()   #inseri na tabela de ajuste
-            prod_serv_ajuste.cnpj =  product_data['cd_prod_serv']
+            prod_serv_ajuste.cnpj =  product_data['cnpj']
             prod_serv_ajuste.cd_prod_serv_ajuste = product_data['cd_prod_serv'] 
-            prod_serv_ajuste.cd_ean_ajuste = product_data['cd_ean_prod_serv']
+            if  product_data['cd_ean_prod_serv'] != 'SEM GTIN':
+                prod_serv_ajuste.cd_ean_ajuste = product_data['cd_ean_prod_serv']
+            prod_serv_ajuste.manual = 0
             session.add(prod_serv_ajuste)
             product_data['cd_ean_prod_serv_original'] = product_data['cd_ean_prod_serv']
             return product_data            
         else:
             result = query.first()
-            product_data['cd_ean_prod_serv_original'] = product_data['cd_ean_prod_serv']
-            product_data['cd_ean_prod_serv'] = result.cd_ean_prod_serv
+            if result.cd_ean_ajuste != None: 
+                product_data['cd_ean_prod_serv_original'] = product_data['cd_ean_prod_serv']
+                product_data['cd_ean_prod_serv'] = result.cd_ean_ajuste
+            else:
+                product_data['cd_ean_prod_serv_original'] = product_data['cd_ean_prod_serv']
             return product_data
 
     def criar_conexao(self):
@@ -1447,12 +1460,48 @@ def main_2(nt_fiscal):
     else:
         print('Nulo')
 
-    
+def renomear_arquivos_nfce(caminho):
+    if os.path.exists(caminho):
+        log_file = os.path.join(caminho, 'arquivo.log')
+        for arq in os.listdir(caminho):
+            if arq[0:3].lower() == 'nf_': #verifica se o arquivo já foi renomeado
+                continue
+            if os.path.splitext(arq)[-1].lower() != '.html': #verifica se é um arquivo html
+                continue
+            arq_nota_fiscal = os.path.join(caminho, arq)
+            try:
+                nota_fiscal = NfceParse(arquivo_nfce =arq_nota_fiscal, 
+                                        aj_valor = True, 
+                                        log_file_name = log_file)
+            except Exception as e:
+                print(f'Erro - {e}')
+            else:
+                acess_key = nota_fiscal.obter_chave_acesso()  #pega a chave de acesso da nota fiscal
+                invoice_data = nota_fiscal.obter_dados_nfe_codigo_acesso(acess_key) #pega os dados da nota
+                dt = dateutil.parser.parse(invoice_data['dt_emissao'], dayfirst=True) #converte o formata iso para datetime
+                dados_emitente = nota_fiscal.obter_dados_emitente()     #pega os dados do emitente
+                #o novo arquivo será, o nome de emitente(10 primeiros caracteres,data/hora da compra e valor da nota
+                razao_social = dados_emitente['razao_social']
+                razao_social = re.sub(r'[\s\-_]', '',razao_social) #retira espaços e traços
+                file_name = 'nf_' + razao_social[:10] +\
+                            '_' + \
+                            dt.strftime('%Y_%m_%d_%H_%M') +\
+                            '_' + \
+                            str(invoice_data['vl_total']) + \
+                            '.html'
+                print(file_name)
+                print(arq)
+                shutil.move(os.path.join(caminho, arq),\
+                            os.path.join(caminho,file_name))
+                nota_fiscal.log.info(f'-;Arquivo {arq} renomeado para {file_name}')
+
+        
 if __name__ == '__main__':
     #arquivo = './nota_fiscal_arquivos/backup/29200513408943000108650010000444531023501903.yang.ping.html'
 #    arquivo = 'page_source.html'
 #    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
 #    main_2(nt_fiscal)
+    renomear_arquivos_nfce('data/html_invoices')
     pass
     
 

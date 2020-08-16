@@ -22,8 +22,8 @@ def get_engine_bd():
     global engine
     if not engine:
         user = os.environ.get('USER_DB_NTFCE')
-        #host = 'localhost'
-        host = '192.168.25.7'
+#        host = 'localhost'
+        host = '192.168.15.8'
         password = os.environ.get('PASS_DB_NTFCE')
         banco = 'nota_fiscal'
         engine = create_engine('mysql://{}:{}@{}/{}'.format(user,password,host, banco), 

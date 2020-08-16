@@ -18,7 +18,9 @@ from nfce_models import engine, \
                         products_v, \
                         products_class_v, \
                         agrupamento_produto_t, \
-                        products_gtin_t
+                        products_gtin_t, \
+                        adjust_prod_serv_t, \
+                        produtos_servicos_t
 
 #class FrameSearchProduct(tk.Frame):
 #    
@@ -465,7 +467,7 @@ class FormGtin(FrameFormData):
 
 
     def __init__(self, master, connection, keys, state=0, ):
-        super().__init__(master, connection, data_table=products_gtin_t, state=state, keys=keys)
+        super().__init__(master, connection, data_table=products_gtin_t, state=state, data_keys=keys)
         
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
@@ -514,7 +516,7 @@ class FormGtin(FrameFormData):
 
         
         if self.state == self.STATE_UPDATE:
-            data = self.get_form_dbdata(self.keys) 
+            data = self.get_form_dbdata(self.data_keys) 
             self.set_form_dbdata(data)
 
         
@@ -1281,7 +1283,127 @@ class FrameProductSemGtimProduct(tk.Frame):
                 
                 widget.grid_forget()
 
+class FrameProductAdjust(FrameFormData):
 
+
+    def __init__(self, 
+                 master,
+                 connection, 
+                 keys, 
+                 state=0, ):
+                     
+        super().__init__(master, 
+                         connection, 
+                         data_table=adjust_prod_serv_t,
+                         state=state,
+                         enabled_delete=False, 
+                         enabled_new=False, 
+                         data_keys=keys)
+        
+        self.produtos_servicos_t = produtos_servicos_t
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Estabel.:', width=10,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14, state='readonly')
+        e.pack(side=tk.LEFT, pady=2)
+       
+        cnpj = DBField(field_name='cnpj', 
+                                 comparison_operator = '=', 
+                                 label='cnpj', 
+                                 width=14, 
+                                 type_widget=tk.Entry)
+        self.add_widget(cnpj, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Produto:', width=10,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=80, state='readonly')
+        e.pack(side=tk.LEFT, pady=2)
+        
+        cd_produto = DBField(field_name='cd_prod_serv_ajuste', 
+                             comparison_operator = '=', 
+                             label='cd_prod_serv_ajuste', 
+                             width=40, 
+                             type_widget=tk.Entry)
+        self.add_widget(cd_produto, e)
+
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtin:', width=10,  anchor='e').pack(side=tk.LEFT , anchor='w')
+
+        e = ComboBoxDB(f, width=80, state='readonly')
+        e.ds_key = 'cd_ean_produto'
+        e.pack(side=tk.LEFT, pady=2)
+       
+        s = select([products_gtin_t.c.cd_ean_produto,
+                    products_gtin_t.c.ds_produto]).\
+                    order_by(products_gtin_t.c.ds_produto)
+        result = self.conn.execute(s)
+        e.fill_list(result.fetchall())
+        
+        gtin = DBField(field_name='cd_ean_ajuste', 
+                                 comparison_operator = '=', 
+                                 label='cd_ean_ajuste', 
+                                 width=5, 
+                                 type_widget=tk.Entry)
+        self.add_widget(gtin, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Manual.:', width=10,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = ChkButton(f, width=1, anchor="w")
+        e.pack(side=tk.LEFT, pady=2)
+        
+        manual = DBField(field_name='manual', 
+                         comparison_operator = '=', 
+                         label='Manual.', 
+                         width=5, 
+                         type_widget=ChkButton)
+        self.add_widget(manual, e)
+        
+        if self.state == self.STATE_UPDATE:
+            data = self.get_form_dbdata(self.data_keys) 
+            self.set_form_dbdata(data)
+
+
+    def update(self):
+        '''
+            Atualiza o banco de dados com os dados do form
+        '''   
+        try:
+            if self.state == self.STATE_INSERT:
+                result = self.check_form_for_update(insert=True)
+            else:
+                result = self.check_form_for_update(insert=False)            
+            if not result[0]:
+                try:
+                    transaction = self.conn.begin()
+                    if self.state == self.STATE_INSERT:
+                        return self.insert()
+                    form_data = self.convert_data_to_bd(self.get_form_data())
+                    form_keys = self.get_form_keys()
+                    updt = self.data_table.update()
+                    for key in self.data_keys:
+                        updt = updt.where(self.data_table.c[key] == self.data_keys[key])
+                    updt = updt.values(**form_data)                
+                    self.conn.execute(updt)
+                    updt =  self.produtos_servicos_t.update()
+                    updt = updt.values(cd_ean_prod_serv = form_data['cd_ean_ajuste'] )
+                    updt = updt.where(and_( self.produtos_servicos_t.c['cnpj'] == self.data_keys['cnpj'], 
+                                            self.produtos_servicos_t.c['cd_prod_serv'] == self.data_keys['cd_prod_serv_ajuste']))
+                    self.conn.execute(updt)
+                    transaction.commit() 
+                    for key in form_keys:
+                        self.data_keys[key] = form_keys[key]
+                except Exception as e:
+                    transaction.rollback()
+                    print(e)
+                    return -1
+                return 0
+            return -1
+        except Exception as e:
+            print(e)
+            return -1
 
 class FrameProductEan(tk.Frame):
     
@@ -1419,6 +1541,27 @@ def make_gtin_window(Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':'789432
         root.resizable(False, False)
         root.mainloop()
 
+
+def make_product_adjust_window( master = None,
+                                frame=FrameProductAdjust,
+                                title='Ajuste Produto',
+                                keys={'cnpj':'00063960004864', 
+                                      'cd_prod_serv_ajuste':'00000250781'},
+                                state=0):
+    if master:
+        root = tk.Toplevel(master)
+        root.conn = master.conn
+    else:
+        root = tk.Tk()
+        root.conn = engine.connect()
+    root.title(title)
+    if frame:
+        f = frame(root, root.conn,keys, state)
+        f.pack(fill = tk.X)
+        root.resizable(False, False)
+        root.mainloop()
+
+
 def make_product_grouping_window(master=None):
     make_window(master=master, Frame=FrameProductGrouping, title='Agrupamento')
     
@@ -1459,7 +1602,8 @@ def make_search_products_window(master=None):
 def main():    
 #    make_product_gtin_product_window()
 #    make_product_grouping_window()
-    make_gtin_window()
+#    make_gtin_window()
+    make_product_adjust_window()
 #    make_product_window()
     
 

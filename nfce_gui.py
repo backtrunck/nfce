@@ -1,21 +1,193 @@
 import nfce_db
+from nfce_produtos import FrameProductAdjust
+from nfce_produtos import make_product_adjust_window
+
 from sqlalchemy import *
 from sqlalchemy.sql import text 
 import tkinter as tk
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
-from interfaces_graficas.db import FrameGridSearch, DBField#, ComboBoxDB
+from interfaces_graficas.db import FrameGridSearch, DBField, FrameFormData#, ComboBoxDB
 from interfaces_graficas import show_modal_win
-from nfce_models import nota_fiscal_produtos_v
+from nfce_models import nota_fiscal_v,\
+                        produtos_servicos_v,\
+                        nota_fiscal_produtos_v
 from PIL import Image
 from PIL.ImageTk import PhotoImage
 from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice, Field
+
+class FormInvoice(FrameFormData):
+    def __init__(self, master, connection, data_keys=[], grid_keys=[], state=0):
+        super().__init__(master, 
+                         connection,
+                         data_table=nota_fiscal_v,
+                         grid_table=produtos_servicos_v, 
+                         state=state, 
+                         data_keys=data_keys, 
+                         grid_keys=grid_keys, 
+                         enabled_update=False, 
+                         enabled_delete=False, 
+                         enabled_new=False)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)
+        f.grid_columnconfigure([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], weight=1)
+        pady = 1
+        tk.Label(f, text='Data.:', width=9,  anchor='e').grid(row=0, column=0, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=11, state='readonly')
+        e.grid(row=0, column=1, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT, pady=2)
+        cnpj = DBField(field_name='dt_emissao')
+                         
+        self.add_widget(cnpj, e)
+        
+#        f = tk.Frame(self.form)
+#        f.pack(fill=tk.X)        
+        tk.Label(f, text='Hora:', width=6,  anchor='e').grid(row=0, column=2, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=6, state='readonly')
+        e.grid(row=0, column=3, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='hora_emissao')
+        self.add_widget(cd_produto, e)
+        
+#        f = tk.Frame(self.form)
+#        f.pack(fill=tk.X)        
+        tk.Label(f, text='Uf:', width=6,  anchor='e').grid(row=0, column=4, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=3, state='readonly')#.pack(side=tk.LEFT, pady=2)
+        e.grid(row=0, column=5, sticky=tk.W, pady=pady)        
+        cd_produto = DBField(field_name='sg_uf')
+        self.add_widget(cd_produto, e)
+        
+#        f = tk.Frame(self.form)
+#        f.pack(fill=tk.X)        
+        tk.Label(f, text='Nfce:', width=6,  anchor='e').grid(row=0, column=6, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10, state='readonly')
+        e.grid(row=0, column=7, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='nu_nfce')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Nota Fiscal:', width=12,  anchor='e').grid(row=0, column=8, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10, state='readonly')
+        e.grid(row=0, column=9, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='num_nf')
+        self.add_widget(cd_produto, e)        
+        
+        tk.Label(f, text='Cnpj:', width=9,  anchor='e').grid(row=1, column=0, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14, state='readonly')
+        e.grid(row=1, column=1, columnspan=3, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='cnpj')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Estab:', width=6,  anchor='e').grid(row=1, column=4, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=50, state='readonly')
+        e.grid(row=1, column=5, columnspan=5, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='estabelecimento')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='End:', width=9,  anchor='e').grid(row=2, column=0, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=50, state='readonly')
+        e.grid(row=2, column=1, columnspan=3, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='endereco')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Bairro:', width=6,  anchor='e').grid(row=2, column=4, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=20, state='readonly')
+        e.grid(row=2, column=5, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='bairro')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Mun.:', width=6,  anchor='e').grid(row=2, column=6, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=20, state='readonly')
+        e.grid(row=2, column=7, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='nm_municipio')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Tel.:', width=12,  anchor='e').grid(row=2, column=8, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=20, state='readonly')
+        e.grid(row=2, column=9, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='telefone')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Chave:', width=9,  anchor='e').grid(row=3, column=0, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=50, state='readonly')
+        e.grid(row=3, column=1, columnspan=5, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='chave_acesso_format')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Valor:', width=6,  anchor='e').grid(row=3, column=6, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=10, state='readonly')
+        e.grid(row=3, column=7, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='vl_total')
+        self.add_widget(cd_produto, e)
+        
+        tk.Label(f, text='Inf.Comp.:', width=9,  anchor='e').grid(row=4, column=0, sticky=tk.W, pady=pady)#.pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=60, state='readonly')
+        e.grid(row=4, column=1 , columnspan=9, sticky=tk.W+tk.E, pady=pady)#.pack(side=tk.LEFT, pady=2)        
+        cd_produto = DBField(field_name='ds_informacoes_complementares')
+        self.add_widget(cd_produto, e)       
+        
+        nu_prod_serv= DBField(field_name='nu_prod_serv',label='Item', width=5)
+        ds_prod_serv= DBField(field_name='ds_prod_serv',label='Desc.', width=28)
+        qt_prod_serv= DBField(field_name='qt_prod_serv',label='Qt.', width=6)
+        vl_pago = DBField(field_name='vl_pago',label='Vl. Pago', width=9)
+        vl_por_unidade= DBField(field_name='vl_por_unidade', label='Vl. Unit.',width=9)
+        unid_comercial = DBField(field_name='un_comercial_prod_serv', label='Un.',width=3)
+        ncm = DBField(field_name='cd_ncm_prod_serv', label='NCM',width=10)
+        ean = DBField(field_name='cd_ean_prod_serv', label='Gtin',width=15)
+        ds_produto =  DBField(field_name='ds_produto',label='Produto', width=28)
+        ds_classe_produto =  DBField(field_name='ds_classe_produto',label='Classe Prod.', width=20)
+        nu_nfce = DBField(field_name='nu_nfce',width=10, label='Nota', visible=False)
+        cd_uf = DBField(field_name='cd_uf',label='Uf', width=2, visible=False)
+        cnpj = DBField(field_name='cnpj',label='Cnpj', width=14, visible=False)        
+        serie = DBField(field_name='serie',width=5, visible=False) 
+        cd_modelo = DBField(field_name='cd_modelo', label='Modelo',width=6, visible=False)  
+        cd_prod_serv = DBField(field_name='cd_prod_serv', label='Cd. Prod.',width=12, visible=True)
+        
+        self.columns = [nu_prod_serv, ds_prod_serv, qt_prod_serv,vl_por_unidade, 
+                        vl_pago,unid_comercial, ncm, ean,ds_produto,  
+                        ds_classe_produto, cd_prod_serv, nu_nfce, cd_uf,
+                        cnpj,serie, cd_modelo]
+        self.scroll.set_header(self.columns)
+        
+        self.add_widget_tool_bar(text='Ajustar', width = 10, command=self.adjust_product)
+        
+        if self.state == self.STATE_UPDATE:
+            data = self.get_form_dbdata(self.data_keys) 
+            self.set_form_dbdata(data)
+            self.set_data_columns()
+            self.set_filter_grid(grid_keys)
+            self.get_grid_dbdata()
+            
+    def adjust_product(self):
+        if self.last_clicked_row != -1:
+            nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            make_product_adjust_window(master = self, 
+                                       frame=FrameProductAdjust, 
+                                       title='Ajuste Produto',
+                                       keys={'cd_prod_serv_ajuste':nu_nfce['cd_prod_serv'], 
+                                             'cnpj': nu_nfce['cnpj']}, 
+                                       state=0)
 
 def make_class_search_invoice_window(master=None):
     make_window(master=master, Frame=FrameSearchInvoices, title='Pesquisa Nota Fiscal', resizable=False)
 
     
-def make_window(master=None, Frame=None, title=None, resizable=True):
+def make_invoice_window(master=None, 
+                        Frame=FormInvoice,
+                        title='Nota Fiscal',
+                        keys={'cd_ean_produto':'7894321218526'}, 
+                        state=1):
+#retirar após teste de FormInvoice
+#    root = tk.Tk()
+#    root.conn = engine.connect()
+#    root.title(title)
+#    if Frame:
+#        f = Frame(root, root.conn, keys, state)
+#        f.pack(fill = tk.X)
+#        root.resizable(False, False)
+#        root.mainloop()
+    pass
+
+
+def make_window(master=None, Frame=None, title=None, resizable=True, **kwargs):
     if master:
         root = tk.Toplevel(master)
         root.conn = master.conn
@@ -25,7 +197,10 @@ def make_window(master=None, Frame=None, title=None, resizable=True):
     if title:
         root.title(title)
     if Frame:
-        f = Frame(root, root.conn)
+        if kwargs:
+            f = Frame(root, root.conn, **kwargs)
+        else:
+            f = Frame(root, root.conn)
         f.pack(fill = tk.X)
         if not resizable:
             root.resizable(False, False)
@@ -310,7 +485,7 @@ class FrameSearchInvoices(FrameGridSearch):
                              type_widget=None)        
         self.add_widget(filter, e)
         
-        self.add_widget_tool_bar(text='Detalhar', width = 10, command=self.row_detail)
+        
         
         nfce_field = DBField(field_name='nu_nfce', 
                              comparison_operator = '=', 
@@ -341,19 +516,200 @@ class FrameSearchInvoices(FrameGridSearch):
         self.columns = [dt_emission_field, cnpj_field, supplier_field,vl_total_field, nfce_field, 
                         serie_field, modelo_field, uf_field ]
         self.scroll.set_header(self.columns)
+        self.add_widget_tool_bar(text='Detalhar', width = 10, command=self.row_detail)
                
     def row_detail(self):
-        nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
-        stm = select(nota_fiscal_produtos_v.c).where(and_(nota_fiscal_produtos_v.c['cd_uf'] == nu_nfce['cd_uf'], 
-                                                     nota_fiscal_produtos_v.c['cd_modelo'] == nu_nfce['cd_modelo'], 
-                                                     nota_fiscal_produtos_v.c['serie'] == nu_nfce['serie'], 
-                                                     nota_fiscal_produtos_v.c['nu_nfce'] == nu_nfce['nu_nfce'], 
-                                                     nota_fiscal_produtos_v.c['cnpj'] == nu_nfce['cnpj']))
+        if self.last_clicked_row != -1:
+            nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            data_keys = {key:value for key, value in nu_nfce.items() if key in ['cd_uf',
+                                                                        'cd_modelo',
+                                                                        'serie', 
+                                                                        'nu_nfce',
+                                                                        'cnpj' ]}
+            make_window(master=self, 
+                        Frame=FormInvoice, 
+                        title='Nota Fiscal', 
+                        resizable=True, 
+                        data_keys= data_keys, 
+                        grid_keys=data_keys)
+
+
+    
+
+class FrameSearchInvoices2(FrameGridSearch):
+    def __init__(self, master, connection, **kwargs):
+        super().__init__(master, connection, grid_table=nota_fiscal_produtos_v, **kwargs)
         
-        #dlg_itens_invoice
-        result = self.conn.execute(stm).fetchall()
-        #print(result)
-        dlg_itens_invoice(result, self.conn)
+        width_label = 12
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)   
+        
+        l = tk.Label(f, text='Ch. de Acesso:', width=width_label,  anchor='e')
+        l.pack(side=tk.LEFT , anchor='w')
+#        l.grid(row=0,column=0,stick=tk.E + tk.W)
+#        e = tk.Entry(f, width=44)
+        e.pack(side=tk.LEFT, pady=2)
+        e.grid(row=0,column=1,columnspan=3,stick=tk.E + tk.W)
+        field = DBField(field_name='chave_acesso',
+                        comparison_operator = Field.OP_EQUAL,
+                        label='chave_acesso',
+                        width=44,
+                        type_widget=None)
+        self.add_widget(field, e)
+           
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)
+        
+        l = tk.Label(f, text='Cnpj:', width=width_label,  anchor='e')
+        l.pack(side=tk.LEFT , anchor='w')
+#        l.grid(row=1,column=0,stick=tk.E + tk.W)
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+#        e.grid(row=1,column=1,columnspan=1,stick=tk.E + tk.W)
+        cnpj_field = DBField(field_name='cnpj', 
+                                 comparison_operator = Field.OP_EQUAL,
+                                 label='cnpj',
+                                 width=14, 
+                                 type_widget=tk.Entry)
+        self.add_widget(cnpj_field, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)   
+    
+        l = tk.Label(f, text='Estabelec.:', width=width_label,  anchor='e')
+        l.pack(side=tk.LEFT , anchor='w')
+#        l.grid(row=1,column=2,stick=tk.E + tk.W)    
+        e = tk.Entry(f, width=40)
+        e.pack(side=tk.LEFT, pady=2)
+#        e.grid(row=1,column=3,columnspan=1,stick=tk.E + tk.W)
+        supplier_field = DBField(field_name='estabelecimento', 
+                                     comparison_operator = Field.OP_LIKE,
+                                    label='estabelecimento',
+                                    width=40, 
+                                    type_widget=tk.Entry)        
+        self.add_widget(supplier_field, e)
+        
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)  
+        
+        l = tk.Label(f, text='Data De:', width=width_label,  anchor='e')
+        l.pack(side=tk.LEFT , anchor='w')
+#        l.grid(row=3,column=0,stick=tk.E + tk.W)  
+        e = tk.Entry(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+#        e.grid(row=3,column=1,columnspan=1,stick=tk.E + tk.W)
+        dt_emission_field = DBField(field_name='data_emissao',
+                                        comparison_operator = Field.OP_GREATER_EQUAL,
+                                        label='Emissão',
+                                        width=10, 
+                                        type_widget=tk.Entry)        
+        self.add_widget(dt_emission_field, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)                
+        l= tk.Label(f, text='Data Até:', width=width_label,  anchor='e')
+        l.pack(side=tk.LEFT , anchor='w')
+#        l.grid(row=3,column=2,stick=tk.E + tk.W)  
+        e = tk.Entry(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+#        e.grid(row=3,column=3,columnspan=1,stick=tk.E + tk.W)
+        field = DBField(field_name='data_emissao',
+                            comparison_operator = Field.OP_LESS_EQUAL,
+                            label='dt_emissao_2',
+                            width=10, 
+                            type_widget=None)        
+        self.add_widget(field, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+       
+        l = tk.Label(f, text='Gtin:', width=width_label,  anchor='e')
+        l.pack(side=tk.LEFT , anchor='w')
+#        l.grid(row=2,column=0,stick=tk.E + tk.W) 
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+#        e.grid(row=2,column=1,columnspan=1,stick=tk.E + tk.W)
+        filter = DBField(field_name='cd_ean_prod_serv',
+                             comparison_operator = Field.OP_EQUAL,
+                             label='cd_ean_prod_serv',
+                             width=14, 
+                             type_widget=None)        
+        self.add_widget(filter, e)
+        
+#        f = tk.Frame(self.form)
+#        f.pack(fill=tk.X)        
+        l = tk.Label(f, text='Produto:', width=width_label,  anchor='e')
+#        l.pack(side=tk.LEFT , anchor='w')
+        l.grid(row=2,column=2,stick=tk.E + tk.W) 
+        e = tk.Entry(f, width=35)
+#        e.pack(side=tk.LEFT, pady=2)
+        e.grid(row=2,column=3,columnspan=1,stick=tk.E + tk.W)
+        filter = DBField(field_name='ds_prod_serv',
+                             comparison_operator = Field.OP_LIKE,
+                             label='ds_prod_serv',
+                             width=35, 
+                             type_widget=None)        
+        self.add_widget(filter, e)
+        
+        
+        
+        nfce_field = DBField(field_name='nu_nfce', 
+                             comparison_operator = '=', 
+                             label='Número', 
+                             width=8, 
+                             type_widget=tk.Entry)
+        uf_field = DBField(field_name='cd_uf',
+                           comparison_operator = '=', 
+                           label='Uf', 
+                           width=8, 
+                           type_widget=tk.Entry)
+        serie_field = DBField(field_name='serie', 
+                              comparison_operator = '=', 
+                              label='Série', 
+                              width=5, 
+                              type_widget=tk.Entry)
+        modelo_field = DBField(field_name='cd_modelo', 
+                               comparison_operator = '=', 
+                               label='Modelo', 
+                               width=6, 
+                               type_widget=tk.Entry)
+        vl_total_field = DBField(field_name='vl_total', 
+                               comparison_operator = '=', 
+                               label='Vl. Total', 
+                               width=8, 
+                               type_widget=tk.Entry)
+                               
+        self.columns = [dt_emission_field, cnpj_field, supplier_field,vl_total_field, nfce_field, 
+                        serie_field, modelo_field, uf_field ]
+        self.scroll.set_header(self.columns)
+        self.add_widget_tool_bar(text='Detalhar', width = 10, command=self.row_detail)
+        self.add_widget_tool_bar(text='Ajustar', width = 10, command=self.adjust_product)
+               
+    def row_detail(self):
+        if self.last_clicked_row != -1:
+            nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            stm = select(nota_fiscal_produtos_v.c).where(and_(nota_fiscal_produtos_v.c['cd_uf'] == nu_nfce['cd_uf'], 
+                                                         nota_fiscal_produtos_v.c['cd_modelo'] == nu_nfce['cd_modelo'], 
+                                                         nota_fiscal_produtos_v.c['serie'] == nu_nfce['serie'], 
+                                                         nota_fiscal_produtos_v.c['nu_nfce'] == nu_nfce['nu_nfce'], 
+                                                         nota_fiscal_produtos_v.c['cnpj'] == nu_nfce['cnpj']))
+            
+            #dlg_itens_invoice
+            result = self.conn.execute(stm).fetchall()
+            #print(result)
+            dlg_itens_invoice(result, self.conn)
+
+
+    def adjust_product(self):
+        if self.last_clicked_row != -1:
+            nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            
+            make_product_adjust_window(master = self, 
+                                       frame=FrameProductAdjust, 
+                                       title='Ajuste Produto',
+                                       keys={'cnpj':nu_nfce['cnpj'], 'cd_prod_serv_ajuste':'00000250781'}, 
+                                       state=0)
 
 class FormSimpleDialog(tk.Frame):
     '''
@@ -590,16 +946,24 @@ def configure(event):
     print(event.width, event.height)
     
 def main():
-    make_class_search_invoice_window()
-    return
+    
+            #make_invoice_window(keys, state=0)
+            
+#    make_class_search_invoice_window()
+#    return
     root = tk.Tk()
-    root.title('Consulta Produtos')
-    #root.geometry('830x380') 
+    root.title('Teste')
     
     engine = nfce_db.get_engine_bd()    
     conn = engine.connect()
     root.conn = conn
-    
+    keys = {'cd_uf':29, 
+            'cd_modelo':65, 
+            'serie':2, 
+            'nu_nfce':'54254509', 
+            'cnpj':'00063960004864'}
+    make_window(master=root, Frame=FormInvoice, title='Nota Fiscal', resizable=True, **keys)
+    return 
     fields_f_invoice = fields_form_invoice.set_visible({'data_emissao':True, 
                                                         'hora_emissao':True,
                                                         'nu_nfce':True,

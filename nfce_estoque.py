@@ -25,7 +25,7 @@ class FormStockAdjustment(FrameFormData):
 
 
     def __init__(self, master, connection, keys, state=0, ):
-        super().__init__(master, connection, data_table=ajuste_estoque_t, state=state, keys=keys)
+        super().__init__(master, connection, data_table=ajuste_estoque_t, state=state, data_keys=keys)
         label_width = 14
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
@@ -82,7 +82,7 @@ class FormStockAdjustment(FrameFormData):
 
         
         if self.state == self.STATE_UPDATE:
-            data = self.get_form_dbdata(self.keys) 
+            data = self.get_form_dbdata(self.data_keys) 
             self.set_form_dbdata(data)
 
 
@@ -901,7 +901,7 @@ class FrameSearchStock(FrameGridSearch):
             self.conn.execute(ins)
             
         make_stock_adjustment_window(master=self, keys=keys)
-        print("passou")
+        
         self.search()
     
     def search(self):
@@ -952,7 +952,10 @@ def make_window(master=None, Frame=None, title=None, resizable=True):
 def make_class_search_stock_window(master=None):
     make_window(master=master, Frame=FrameSearchStock, title='Pesquisa Estoque', resizable=False)
 
-def make_stock_adjustment_window(master = None, Frame=FormStockAdjustment, title='Ajuste de Estoque',keys={'cd_ean_produto':'7894321218526'}):
+def make_stock_adjustment_window(master = None,
+                                 Frame=FormStockAdjustment,
+                                 title='Ajuste de Estoque',
+                                 keys={'cd_ean_produto':'7894321218526'}):
     if master:
         root = tk.Toplevel(master)
         root.conn = master.conn

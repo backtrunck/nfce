@@ -97,8 +97,9 @@ class NotaFiscal(object):
                         self.cnpj,
                         self.vl_total)
 
-
+nota_fiscal_t = Table('nota_fiscal', meta_data, autoload=True, autoload_with=engine)
 products_t = Table('produtos', meta_data, autoload=True, autoload_with=engine)
+produtos_servicos_t = Table('produtos_servicos', meta_data, autoload=True, autoload_with=engine)
 products_gtin_t = Table('produtos_gtin', meta_data, autoload=True, autoload_with=engine)
 products_sem_gtin_products_t = Table('produtos_x_prod_serv_sem_gtin', meta_data, autoload=True, autoload_with=engine)
 products_gtin_products_t = Table('produtos_x_produtos_gtin', meta_data, autoload=True, autoload_with=engine)
@@ -108,11 +109,13 @@ ajuste_estoque_t = Table('ajuste_estoque', meta_data, autoload=True, autoload_wi
 adjust_prod_serv_t = Table('produtos_servicos_ajuste', meta_data, autoload=True, autoload_with=engine)
 
 nota_fiscal_produtos_v = Table('nota_fiscal_produtos_v', meta_data, autoload=True, autoload_with=engine)
+nota_fiscal_v = Table('nota_fiscal_v', meta_data, autoload=True, autoload_with=engine)
 products_sem_gtin_products_v = Table('produtos_sem_gtin_x_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_gtin_products_v = Table('produtos_gtin_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_exit_t = Table('saida_produtos', meta_data, autoload=True, autoload_with=engine)
 products_exit_v = Table('saida_produtos_v', meta_data, autoload=True, autoload_with=engine)
 products_v = Table('produtos_v', meta_data, autoload=True, autoload_with=engine)
+produtos_servicos_v = Table('produtos_servicos_v', meta_data, autoload=True, autoload_with=engine)
 products_class_v = Table('classe_produto_v', meta_data, autoload=True, autoload_with=engine)
 stock_v = Table('estoque_v', meta_data, autoload=True, autoload_with=engine)
 
