@@ -2,6 +2,7 @@ import re, os, datetime, util, sys, logging, shutil
 import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
+from bs4.element import NavigableString, Tag
 from nfce_db import PRODUCT_NO_CLASSIFIED
 from nfce_models import Session,\
                         NotaFiscal,\
@@ -16,11 +17,286 @@ from nfce_models import Session,\
                         ProdutoGtin, \
                         ProdutoServicoAjuste
 
+FORMATO_CD_ACESSO =     {'cd_uf':(0, 2),   
+                         'ano_mes':(2, 6),         
+                         'cnpj':(6, 20), 
+                         'cd_modelo':(20, 22), 
+                         'serie':(22, 25), 
+                         'numero':(25, 34), 
+                         'cd_forma_emissao':(34, 35), 
+                         'nu_nfce':(35, 43), 
+                         'digito_verificador':(43, 44)   
+                        } 
+
+LABELS_EMITENTE =   {
+                    'Nome / Razão Social':'razao_social', 
+                    'Nome Fantasia':'nm_fantasia', 
+                    'CNPJ':'cnpj', 
+                    'Endereço':'endereco', 
+                    'Bairro / Distrito':'bairro', 
+                    'Município':'cd_municipio', 
+                    'Telefone':'telefone', 
+                    'UF':'sg_uf', 
+                    'CEP':'cep', 
+                    'País':'cd_pais', 
+                    'Inscrição Estadual':'insc_estadual', 
+                    'Inscrição Estadual do Substituto Tributário':'insc_estadual_substituto', 
+                    'Inscrição Municipal':'insc_municipal', 
+                    'Município da Ocorrência do Fato Gerador do ICMS':'cd_municipio_ocorrencia', 
+                    'CNAE Fiscal':'cnae_fiscal', 
+                    'Código de Regime Tributário':'ds_regime_tributario', 
+                    }
+
 
 class NfceArquivoInvalido(Exception):
     pass
     
-   
+def decodificar_codigo_acesso(codigo_acesso):
+    dados_nfce = {}
+    cd_acesso = util.retirar_pontuacao(codigo_acesso)
+    for chave,  item in FORMATO_CD_ACESSO.items():
+        pos = FORMATO_CD_ACESSO[chave]
+        valor = cd_acesso[ pos[0]:pos[1]]
+        dados_nfce[chave] = valor
+    dados_nfce['chave_acesso'] = cd_acesso
+    return dados_nfce
+    
+    
+class NfceParseGovBr():
+    '''
+        Classe para leitura de nota fiscais eletronicas do site
+        https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=d09fwabTnLk=
+    '''
+    def __init__(self,  arquivo_nfce, 
+                    aj_texto = True,  
+                    aj_data = False,
+                    aj_valor = False,
+                    log_file_name = '',
+                    verbose_log = False, 
+                    logNivel = logging.INFO):
+    
+        self.file_nfce = arquivo_nfce
+        self.log_file_name = log_file_name
+        self.verbose_log = verbose_log
+        
+        if not log_file_name:
+            logging.basicConfig(level       = logNivel, \
+                                format      = '%(levelname)s;%(asctime)s;%(name)s;%(message)s')
+        else:
+            logging.basicConfig(level       = logNivel, \
+                                filename    = log_file_name, \
+                                format      = '%(levelname)s;%(asctime)s;%(name)s;%(message)s')
+            
+        self.log = logging.getLogger(__name__)    
+        
+        try:
+            self.gravar_msq_log('-;Abrindo arquivo {}'.format(arquivo_nfce))
+            arq = open(arquivo_nfce,'r', encoding='utf-8')            
+            
+        except Exception as e:
+            self.gravar_msq_log('-;Erro ao abrir {}'.format(arquivo_nfce))
+            raise e
+            
+        self.dados_nota_fiscal = BeautifulSoup(arq.read(),'lxml')
+        arq.close()
+        
+        self.aj_texto = aj_texto            #indica se as string do html vão ser ajustadas (retirar multiplos espaços, etc)    
+        self.aj_data = aj_data              #indica que vai converter a datas (string) em datetime, campos iniciando com 'dt_'
+        self.aj_valor = aj_valor
+        
+        #pega as chaves da nota fiscal
+        span = self.dados_nota_fiscal.find('span', {'id':'lblChaveAcesso'})
+        if span:
+            nfce = decodificar_codigo_acesso(span.get_text())
+            self.chaves_nota_fiscal = {}
+            self.chaves_nota_fiscal['cnpj'] = nfce['cnpj']
+            self.chaves_nota_fiscal['serie'] = nfce['serie']
+            self.chaves_nota_fiscal['cd_modelo'] = nfce['cd_modelo']
+            self.chaves_nota_fiscal['cd_uf'] = nfce['cd_uf']
+            self.chaves_nota_fiscal['nu_nfce'] = nfce['nu_nfce']
+            self.chave_acesso = nfce['chave_acesso']
+        else:
+            self.gravar_msq_log('-;Arquivo de Nota Fiscal Inválido: {}'.format(arquivo_nfce))
+            raise NfceArquivoInvalido
+
+
+    def gravar_msq_log(self, msg):
+        if self.log_file_name != '' or self.verbose_log:
+            self.log.info(msg)
+
+
+    def obter_dados_cobranca(self):
+        emitente = {}
+        div_emitente = self.dados_nota_fiscal.find('div', {'id':'Cobranca'})
+        if div_emitente:
+            emitente = self.obter_dados_labels(div_emitente, LABELS_EMITENTE)
+            emitente = ajustar_dados_emitente(emitente)
+        return emitente
+
+
+    def obter_dados_emitente(self):
+        emitente = {}
+        div_emitente = self.dados_nota_fiscal.find('div', {'id':'Emitente'})
+        if div_emitente:
+            emitente = self.obter_dados_labels(div_emitente, LABELS_EMITENTE)
+            emitente = ajustar_dados_emitente(emitente)
+        return emitente
+
+    def obter_dados_nota(self):
+        dados_nota = {}
+        dados_nota['cnpj'] = self.chaves_nota_fiscal['cnpj']
+        dados_nota['serie'] = self.chaves_nota_fiscal['serie']
+        dados_nota['cd_modelo'] = self.chaves_nota_fiscal['cd_modelo']
+        dados_nota['cd_uf'] = self.chaves_nota_fiscal['cd_uf'] 
+        dados_nota['nu_nfce'] = self.chaves_nota_fiscal['nu_nfce']
+        dados_nota['chave_acesso '] = self.chave_acesso
+        dados_nota['dt_emissao'] = self.obter_data_emissao()
+        dados_nota['dt_saida'] = self.obter_data_saida()
+        dados_nota['vl_total'] = self.obter_valor_total()
+        dados_nota['ds_informacoes_complementares'] = self.obter_dados_inf_compl()
+        return dados_nota
+
+    def obter_dados_inf_compl(self):
+        id = self.dados_nota_fiscal.find('div', id = 'Inf')
+        legend_inf_contrib = id.find('legend', text='Informações Complementares de Interesse do Contribuinte')
+        return legend_inf_contrib.parent.div.get_text().strip()
+
+    def obter_dados_prod_serv(self):       
+        dados_prod_serv = []
+        div = self.dados_nota_fiscal.find('div', id = 'Prod')
+        #div_prods = div.findAll('div')
+        #[obj for obj in div.children if type(obj) == Tag]
+        for div_prod in div.children:
+            if type(div_prod) != NavigableString:
+                dado_prod_serv = {}
+                
+                table = div_prod.find('table', class_="toggle box")
+                dado = table.find('td', class_='fixo-prod-serv-numero').span.get_text().strip()
+                dado_prod_serv['nu_prod_serv'] = dado
+                dado = table.find('td', class_='fixo-prod-serv-descricao').span.get_text().strip()
+                dado_prod_serv['ds_prod_serv'] = dado
+                dado = table.find('td', class_='fixo-prod-serv-qtd').span.get_text().strip()  
+                dado_prod_serv['qt_prod_serv'] = util.converte_monetario_float(dado)
+                dado = table.find('td', class_='fixo-prod-serv-vb').span.get_text().strip()  
+                dado_prod_serv['vl_prod_serv'] = util.converte_monetario_float(dado)                
+                dado = table.find('td', class_='fixo-prod-serv-uc').span.get_text().strip()  
+                dado_prod_serv['un_comercial_prod_serv'] = dado
+                
+                table = div_prod.find('table', class_="toggable box")
+                dado = table.find('label', text='Código do Produto').parent.span.get_text().strip()  
+                dado_prod_serv['cd_prod_serv'] = dado
+                dado = table.find('label', text='Código NCM').parent.span.get_text().strip()  
+                dado_prod_serv['cd_ncm_prod_serv'] = dado
+                dado = table.find('label', text='Código CEST').parent.span.get_text().strip()  
+                dado_prod_serv['cest_prod_serv'] = dado
+                dado = table.find('label', text='Código EX da TIPI').parent.span.get_text().strip()  
+                dado_prod_serv['cd_ex_tipi_prod_serv'] = dado
+                dado = table.find('label', text='CFOP').parent.span.get_text().strip() 
+                dado_prod_serv['cfop_prod_serv'] = dado
+                dado = table.find('label', text='Outras Despesas Acessórias').parent.span.get_text().strip()  
+                dado_prod_serv['vl_out_desp_acess'] =  util.converte_monetario_float(dado)
+                dado = table.find('label', text='Valor do Desconto').parent.span.get_text().strip()  
+                dado_prod_serv['vl_desconto_prod_serv'] = util.converte_monetario_float(dado)
+                dado = table.find('label', text='Valor Total do Frete').parent.span.get_text().strip()  
+                dado_prod_serv['vl_frete_prod_serv'] = util.converte_monetario_float(dado)
+                dado = table.find('label', text='Valor do Seguro').parent.span.get_text().strip()  
+                dado_prod_serv['vl_seguro_prod_serv'] = util.converte_monetario_float(dado)
+                
+                #table = div_prod.find('table', class_="box")
+                dado = table.find('label', text='Código EAN Comercial').parent.span.get_text().strip()  
+                dado_prod_serv['cd_ean_prod_serv'] = dado
+                dado = table.find('label', text='Unidade Comercial').parent.span.get_text().strip()  
+                dado_prod_serv['un_comercial_prod_serv'] = dado
+                dado = table.find('label', text='Quantidade Comercial').parent.span.get_text().strip()  
+                dado_prod_serv['qt_comercial_prod_serv'] = util.converte_monetario_float(dado)
+                dado = table.find('label', text='Código EAN Tributável').parent.span.get_text().strip() 
+                dado_prod_serv['cd_ean_tributavel_prod_serv'] = dado
+                dado = table.find('label', text='Unidade Tributável').parent.span.get_text().strip()  
+                dado_prod_serv['un_tributavel_prod_serv'] = dado
+                dado = table.find('label', text='Quantidade Tributável').parent.span.get_text().strip()  
+                dado_prod_serv['qt_tributavel_prod_serv'] = util.converte_monetario_float(dado)
+                dado = table.find('label', text='Valor unitário de comercialização').parent.span.get_text().strip()  
+                dado_prod_serv['vl_unit_comerc_prod_serv '] = util.converte_monetario_float(dado)
+                dado = table.find('label', text='Valor unitário de tributação').parent.span.get_text().strip()  
+                dado_prod_serv['vl_unit_tribut_prod_serv'] = util.converte_monetario_float(dado)                
+                dado = table.find('label', text='Número do pedido de compra').parent.span.get_text().strip()  
+                dado_prod_serv['nu_pedido_compra_prod_serv'] = dado                
+                dado = table.find('label', text='Item do pedido de compra').parent.span.get_text().strip()  
+                dado_prod_serv['item_pedido_prod_serv'] = dado                
+                dado = table.find('label', text='Valor Aproximado dos Tributos').parent.span.get_text().strip()  
+                dado_prod_serv['vl_aprox_tributos_prod_serv'] = util.converte_monetario_float(dado)                
+                dado = table.find('label', text='Número da FCI').parent.span.get_text()  
+                dado_prod_serv['nu_fci_prod_serv'] = dado
+                
+                dado = table.find('label', text=re.compile('\s*Origem da Mercadoria\s*')).parent.span.get_text().strip()  
+                dado_prod_serv['ds_origem_mercadoria'] = dado  
+                tag = table.find('label', text=re.compile('\s*Tributação do ICMS\s*'))
+                if tag: #para o caso de tributação pelo simples
+                    dado = table.find('label', text=re.compile('\s*Tributação do ICMS\s*')).parent.span.get_text().strip() 
+                    dado_prod_serv['ds_tributacao_icms'] = dado                
+                    dado = table.find('label', text=re.compile('\s*Valor da BC do ICMS ST\s*')).parent.span.get_text().strip()  
+                    dado_prod_serv['ds_modal_defini_bc_icm'] = util.converte_monetario_float(dado)                
+                    dado = table.find('label', text=re.compile('\s*Valor da base de cálculo efetiva\s*')).parent.span.get_text().strip() 
+                    dado_prod_serv['vl_base_calculo_icms_normal'] = util.converte_monetario_float(dado)                
+                    dado = table.find('label', text=re.compile('\s*Alíquota do ICMS efetiva\s*')).parent.span.get_text().strip() 
+                    dado_prod_serv['vl_aliquota_icms_normal'] = util.converte_monetario_float(dado)                
+                    dado = table.find('label', text=re.compile('\s*Valor do ICMS efetivo\s*')).parent.span.get_text().strip()
+                    dado_prod_serv['vl_icms_normal'] = util.converte_monetario_float(dado)   
+                else:
+                    dado_prod_serv['ds_tributacao_icms'] = 'Simples Nacional / ICMS Não incluído'   
+                    dado_prod_serv['ds_modal_defini_bc_icm'] = ''
+                    dado_prod_serv['vl_base_calculo_icms_normal'] = 0.0                
+                    dado_prod_serv['vl_aliquota_icms_normal'] = 0.0
+                    dado_prod_serv['vl_icms_normal'] = 0.0 
+                
+                dados_prod_serv.append(dado_prod_serv)
+        return dados_prod_serv
+    def obter_data_saida(self):
+        label_saida = self.dados_nota_fiscal.find('label', text = re.compile('\s*Data/Hora de Saída ou da Entrada\s*'))
+        if label_saida:
+            return dateutil.parser.parse(label_saida.parent.span.get_text(),dayfirst=True)
+        else:
+            label_saida = self.dados_nota_fiscal.find('label', text = re.compile('\s*Data Saída/Entrada\s*'))
+            if label_saida:
+                if label_saida.parent.span.get_text().strip() != '':
+                    return dateutil.parser.parse(label_saida.parent.span.get_text(),dayfirst=True)
+        return None
+                
+
+    def obter_data_emissao(self):
+        label_emissao = self.dados_nota_fiscal.find('label', text = re.compile('Data de Emissão'))
+        return dateutil.parser.parse(label_emissao.parent.span.get_text(),dayfirst=True)
+
+
+    def obter_valor_total(self):
+        label_valor = self.dados_nota_fiscal.find('label', text = re.compile('Valor\s*Total\s*da\s*Nota\s*Fiscal\s*'))
+        return util.converte_monetario_float(label_valor.parent.span.get_text())
+
+
+    def obter_dados_labels(self, tag, dict_labels):
+        if tag:
+            dados = {}
+            for texto_label in dict_labels.keys():
+                label = tag.find('label', text = texto_label)
+                if label:
+                    dado_label = label.parent.span.get_text()
+                    if self.aj_texto:
+                        dados[dict_labels[texto_label]] = ajustar_texto(dado_label)
+                    else:
+                        dados[dict_labels[texto_label]] = dado_label
+                    if dict_labels[texto_label][:3] == 'cd_' and not dados[dict_labels[texto_label]]:
+                        dados[dict_labels[texto_label]]  = 0
+                    if self.aj_data:
+                        if dict_labels[texto_label][:3] == 'dt_':         #compara os 3 primeiros caracters do campo para saber se é um campo de data.
+                            dados[dict_labels[texto_label]] = converter_data(dados[dict_labels[texto_label]])
+                    if self.aj_valor:
+                        if dict_labels[texto_label][:3] == 'vl_' or dict_labels[texto_label][:3] == 'qt_':         #compara os 3 primeiros caracters do campo para saber se é um campo de data.
+                            dados[dict_labels[texto_label]] = util.converte_monetario_float(dados[dict_labels[texto_label]])
+                else:
+                    dados[dict_labels[texto_label]]  = None
+            return dados
+        else:
+            return None
 class NfceParse():
     #'nt.fiscal.eletronica.2.html'
     
@@ -573,7 +849,7 @@ class NfceParse():
             div = self.dados_nota_fiscal.find('div', {'id': 'Emitente'})            
             if div:
                 #str_log = ''
-                dados_emitente = obter_texto_labels(NfceParse._dados_emitente, div,  self.aj_texto, self.aj_data, self.aj_valor)               
+                dados_emitente = obter_texto_labels(NfceParse._dados_emitente, div,  self.aj_texto, self.aj_data, self.aj_valor)
                 if dados_emitente:
                    for chave, valor in dados_emitente.items():
                         if chave in ('cd_municipio', 'cd_pais'):         #para dados do tipo '1-descricao' pega somente o dado antes do '-'
@@ -1384,7 +1660,7 @@ def converter_data(data_string):
 
 def obter_texto_labels(dict_labels, tag, aj_texto = False, aj_data = False,  aj_valor = False):
     '''
-        Coleta todas as informações dos campos (labels) que estão dentro de uma obter_texto_labels determinada tag de html
+        Coleta todas as informações dos campos (labels) que estão dentro de uma determinada tag de html
         Argumentos:
         dict_labels (dicionario) Dicionario contendo {'texto_da_label':'Nome do Campo'},
         tag (obj:BeautifulSoup) - Tag BeautifulSoup onde vai ser procuradas as labels
@@ -1431,7 +1707,21 @@ def make_logs_path():
         os.mkdir(log_path) 
     return log_path
 
-
+def teste_NfceParseGovBr():
+#    nfce = NfceParseGovBr('/home/lcreina/Documents/notas.fiscais/2020.06.04.memoria.hyper.fury.16gb.html', 
+#                          verbose_log = True)
+    nfce = NfceParseGovBr('/home/lcreina/Documents/cgu/campo.alegre.de.lourdes/vania.dionisio/ct.33.2018/pagamentos/pp.124.nota.fiscal.html', 
+                          verbose_log = True)
+    #
+    print('**** Emitente ****')
+    print('\n'.join([f'{chave}: {valor}' for chave, valor in nfce.obter_dados_emitente().items()]))
+    print()
+    print('**** Dados da Nota Fiscal ****')
+    print('\n'.join([f'{chave}: {valor}' for chave, valor in nfce.obter_dados_nota().items()]))
+    for i, dado_prod_serv in enumerate(nfce.obter_dados_prod_serv(), start=1):
+        print(f'**** Produto e Serviços {i} ****')
+        print('\n'.join([f'{chave}: {valor}' for chave,  valor in dado_prod_serv.items()]))
+    
 def main_2(nt_fiscal):  
        
     print('*' * 10, 'Dados da Nota Fiscal', '*' * 10)
@@ -1460,27 +1750,48 @@ def main_2(nt_fiscal):
     else:
         print('Nulo')
 
+
+def ajustar_dados_emitente(emitente):
+    dados_emitente = emitente
+    if dados_emitente:
+       for chave, valor in dados_emitente.items():
+            if chave in ('cd_municipio', 'cd_pais'):         #para dados do tipo '1-descricao' pega somente o dado antes do '-'
+                if isinstance(valor, str):
+                    dados_emitente[chave] = valor.split('-')[0]
+                    if not dados_emitente[chave].strip():
+                        dados_emitente[chave] = '0'
+            if chave in  ('cnpj', 'cep', 'telefone') :
+                dados_emitente[chave] = util.retirar_pontuacao(valor)
+    return dados_emitente
+
+
 def renomear_arquivos_nfce(caminho):
-    if os.path.exists(caminho):
-        log_file = os.path.join(caminho, 'arquivo.log')
-        for arq in os.listdir(caminho):
-            if arq[0:3].lower() == 'nf_': #verifica se o arquivo já foi renomeado
-                continue
-            if os.path.splitext(arq)[-1].lower() != '.html': #verifica se é um arquivo html
-                continue
+    '''
+    Parametros:
+        (caminho:string) - Caminho da pasta onde estão os arquivos a serem renomeados
+    '''
+    if os.path.exists(caminho):                                #a pasta existe?
+        log_file = os.path.join(caminho, 'arquivo.log')  
+        for arq in os.listdir(caminho):                        #para cada arquivo na pasta
+            if arq[0:3].lower() == 'nf_':                      #verifica se o arquivo já foi renomeado
+                continue                                       #se já foi renomeado pula pro próximo
+            if os.path.splitext(arq)[-1].lower() != '.html':   #verifica se é um arquivo html
+                continue                                       #se não for pula pro próximo
             arq_nota_fiscal = os.path.join(caminho, arq)
             try:
                 nota_fiscal = NfceParse(arquivo_nfce =arq_nota_fiscal, 
                                         aj_valor = True, 
-                                        log_file_name = log_file)
+                                        log_file_name = log_file)   #lê o arquivo de nota fiscal
             except Exception as e:
-                print(f'Erro - {e}')
-            else:
-                acess_key = nota_fiscal.obter_chave_acesso()  #pega a chave de acesso da nota fiscal
+                print(f'Erro - {e}')                                #se der erro, mostra o erro
+            else:                                                   #se não der erro na leitura, processa
+                acess_key = nota_fiscal.obter_chave_acesso()        #pega a chave de acesso da nota fiscal
                 invoice_data = nota_fiscal.obter_dados_nfe_codigo_acesso(acess_key) #pega os dados da nota
-                dt = dateutil.parser.parse(invoice_data['dt_emissao'], dayfirst=True) #converte o formata iso para datetime
+                dt = dateutil.parser.parse(invoice_data['dt_emissao'], \
+                                           dayfirst=True)           #converte o formata iso para datetime
                 dados_emitente = nota_fiscal.obter_dados_emitente()     #pega os dados do emitente
-                #o novo arquivo será, o nome de emitente(10 primeiros caracteres,data/hora da compra e valor da nota
+                #o novo arquivo será, o nome de emitente(10 primeiros caracteres),
+                #data/hora da compra e valor da nota
                 razao_social = dados_emitente['razao_social']
                 razao_social = re.sub(r'[\s\-_]', '',razao_social) #retira espaços e traços
                 file_name = 'nf_' + razao_social[:10] +\
@@ -1502,6 +1813,7 @@ if __name__ == '__main__':
 #    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
 #    main_2(nt_fiscal)
     renomear_arquivos_nfce('data/html_invoices')
+#    teste_NfceParseGovBr()
     pass
     
 

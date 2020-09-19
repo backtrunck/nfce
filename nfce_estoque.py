@@ -176,14 +176,16 @@ class FrameProductExit(tk.Frame):
         self.id_saida_produtos.config(state='readonly')
         
         self.dt_saida.delete(0, tk.END)
+        self.dt_saida.insert(0, datetime.datetime.now().strftime('%d/%m/%Y'))
         self.dt_saida.focus_set()
         
         self.cd_ean_saida.delete(0, tk.END)
+        self.cd_ean_saida.focus_set()
         
         self.ds_produto.config(text = '', anchor='w')
         
         self.qt_saida.delete(0, tk.END)
-        
+        self.qt_saida.insert(0,'1')
         self.dt_criacao.config(text='', anchor='w')  
 
 
