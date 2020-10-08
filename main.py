@@ -61,6 +61,7 @@ def main():
     
     estoque_nfce = tk.Menu(top)
     estoque_nfce.add_command(label='Consulta Estoque',  command=(lambda master = root: nfce_estoque.make_class_search_stock_window(master)), underline=0)
+    estoque_nfce.add_command(label='Consulta Consumo Produtos',  command=(lambda master = root: nfce_estoque.make_search_exit_window(master)), underline=0)
     estoque_nfce.add_command(label='Saída Produtos',  command=(lambda master = root: nfce_estoque.make_product_exit_window(master)), underline=0)
     
     

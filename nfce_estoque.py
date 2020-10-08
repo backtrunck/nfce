@@ -2,7 +2,7 @@ import datetime
 import tkinter as tk
 from tkinter.messagebox import showwarning
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
-from interfaces_graficas import show_modal_win, ChkButton
+from interfaces_graficas import show_modal_win, ChkButton, EntryDate, EntryDateTime
 from util import string_to_date, formatar_data, is_valid_date
 from interfaces_graficas.db import FrameGridSearch, DBField, ComboBoxDB, FrameFormData
 from nfce_models import engine, \
@@ -85,7 +85,135 @@ class FormStockAdjustment(FrameFormData):
             data = self.get_form_dbdata(self.data_keys) 
             self.set_form_dbdata(data)
 
+class FrameExit(FrameFormData):
 
+
+    def __init__(self, master, connection, keys, state=0,data_copy={} ):
+        #chama a classe pai, passando a tabela vinculada, o estado(inclusão/alteração) e as chaves
+        #data)copy: dicionario com dados que vieram de um item a ser copiado como novo. Somente para preechimento
+          #automático do form
+        super().__init__(master, 
+                         connection, 
+                         data_table=products_exit_t, 
+                         state=state, 
+                         data_keys=keys, 
+                         enabled_delete=False)
+        
+        width_label = 11
+        
+        #cria o campo id_saida_produtos
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Id:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+        e.config(state='readonly')
+        id_saida_produtos = DBField(field_name='id_saida_produtos', 
+                                    comparison_operator = Field.OP_EQUAL   ,
+                                    #label='Id', 
+                                    width=14, 
+                                    type_widget=tk.Entry)                                 
+        self.add_widget(id_saida_produtos, e)
+        
+        #cria o campo id_saida_produtos dt_saida
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Data Saída:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        #e = tk.Entry(f, width=10)
+        e = EntryDate(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+        dt_saida = DBField(field_name='dt_saida', 
+                                    comparison_operator = Field.OP_EQUAL   ,
+                                    #label='Data Saida', 
+                                    width=14, 
+                                    type_widget=EntryDate)                                 
+        self.add_widget(dt_saida, e)
+        
+        #cria o campo id_saida_produtos cd_ean_saida
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Gtin:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        self.gtin_widget = tk.Entry(f, width=13)
+        self.gtin_widget.pack(side=tk.LEFT, pady=2)
+        cd_ean_saida = DBField(field_name='cd_ean_saida', 
+                                    comparison_operator = Field.OP_EQUAL   ,
+                                    #label='Gtin', 
+                                    width=14, 
+                                    type_widget=tk.Entry)                                 
+        self.add_widget(cd_ean_saida, self.gtin_widget)
+
+        self.ds_produto = tk.Label(f, width=50, relief=tk.SUNKEN, anchor='w')
+        self.ds_produto.pack(side=tk.LEFT, pady=2, padx=2) 
+        
+        #cria o campo id_saida_produtos qt_saida
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)
+        tk.Label(f, text='Quant:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
+        e = tk.Entry(f, width=5)
+        e.pack(side=tk.LEFT, pady=2)
+        qt_saida = DBField(field_name='qt_saida', 
+                                    comparison_operator = Field.OP_EQUAL   ,
+                                    #label='Quant', 
+                                    width=14, 
+                                    type_widget=tk.Entry)                                 
+        self.add_widget(qt_saida, e)
+        
+        #cria o campo id_saida_produtos dt_criacao
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Data Criação:', width=11, anchor='w').pack(side=tk.LEFT , anchor='w')
+#        e = tk.Label(f, width=20, relief=tk.SUNKEN, anchor='w')  
+        e = EntryDateTime(f, width=16)
+        e.pack(side=tk.LEFT, pady=2)
+        e.config(state='readonly')
+        dt_criacao = DBField(field_name='dt_criacao', 
+                                    comparison_operator = Field.OP_EQUAL   ,
+                                    #label='Data Criação', 
+                                    width=20, 
+                                    type_widget=tk.Label)                                 
+        self.add_widget(dt_criacao, e)
+        
+        #se o estado for de alteração, pega os dados no BD a partir das chaves
+        if self.state == self.STATE_UPDATE:
+            data = self.get_form_dbdata(self.data_keys) 
+            self.set_form_dbdata(data)           
+        else:
+            if data_copy != {}:
+                self.set_form_data_partial(data_copy)
+        if self.gtin_widget.get().strip() != '':
+            self.ds_produto.config(text=self.get_ds_product(self.gtin_widget.get().strip()))
+        #foco no widget do gtin
+        self.controls['cd_ean_saida'].widget.focus_set()
+        
+            
+    def get_ds_product(self, cd_ean):
+        if not cd_ean or len(cd_ean) != 13:
+            return ''        
+        try:
+            stm = select([products_gtin_t.c.ds_produto]).where(products_gtin_t.c.cd_ean_produto == cd_ean)
+            result_proxy = self.conn.execute(stm) 
+        except Exception as e:
+            showwarning('Saídas','Erro "{}" ao Verificar Gtin {}'.format(e, cd_ean))
+            return ''
+        if result_proxy.rowcount == 1:
+            row = result_proxy.fetchone()
+            return row['ds_produto']
+        return ''
+        
+    def after_update(self):
+         if self.gtin_widget.get().strip() != '':
+                self.ds_produto.config(text=self.get_ds_product(self.gtin_widget.get().strip()))
+                
+    def after_insert(self):
+         if self.gtin_widget.get().strip() != '':
+                self.ds_produto.config(text=self.get_ds_product(self.gtin_widget.get().strip()))
+                
+    def after_new(self):
+        self.ds_produto.config(text='')
+
+    def before_insert(self):
+        self.set_widget_data(self.controls['dt_criacao'].widget, datetime.datetime.now())
+                
 class FrameProductExit(tk.Frame):    
     
     def __init__(self, master, connection,  **args):
@@ -765,6 +893,115 @@ class FrameProductGtin(tk.Frame):
                 
                 widget.grid_forget()
 
+class FrameSearchExit(FrameGridSearch):
+    def __init__(self, master, connection, **kwargs):
+        super().__init__(master, connection, grid_table=products_exit_v, **kwargs)
+        
+        width_label = 12
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Data início:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+#        e = tk.Entry(f, width=10)
+        e = EntryDate(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+        data_inicio = DBField(field_name='dt_saida',
+                                        comparison_operator = Field.OP_GREATER_EQUAL,
+                                        label='Dt. Saida',
+                                        width=9, 
+                                        type_widget=EntryDate)
+        self.add_widget(data_inicio, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Data Fim:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        #e = tk.Entry(f, width=10)
+        e = EntryDate(f, width=10)
+        e.pack(side=tk.LEFT, pady=2)
+        data_fim = DBField(field_name='dt_saida',
+                                        comparison_operator = Field.OP_LESS_EQUAL,
+                                        label='Dt. Saida Fim',
+                                        width=10, 
+                                        type_widget=EntryDate) 
+        self.add_widget(data_fim, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Gtin:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=14)
+        e.pack(side=tk.LEFT, pady=2)
+        product_gtin = DBField(field_name='cd_ean_saida',
+                                        comparison_operator = Field.OP_LIKE,
+                                        label='Gtin',
+                                        width=14, 
+                                        type_widget=tk.Entry)        
+        self.add_widget(product_gtin, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Desc. Produto:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=40)
+        e.pack(side=tk.LEFT, pady=2)
+        desc_produto = DBField(field_name='ds_produto',
+                                        comparison_operator = Field.OP_LIKE,
+                                        label='Desc. Produto',
+                                        width=40, 
+                                        type_widget=tk.Entry)        
+        self.add_widget(desc_produto, e)
+        
+        f = tk.Frame(self.form)
+        f.pack(fill=tk.X)        
+        tk.Label(f, text='Quant.:', width=width_label,  anchor='e').pack(side=tk.LEFT , anchor='w')
+        e = tk.Entry(f, width=5)
+        e.pack(side=tk.LEFT, pady=2)
+        quantidade = DBField(field_name='qt_saida',
+                                        comparison_operator = Field.OP_EQUAL,
+                                        label='Quant.',
+                                        width=5, 
+                                        type_widget=tk.Entry)        
+        self.add_widget(quantidade, e)
+        
+        self.add_widget_tool_bar(text='Detalhar', width = 10, command=(lambda param=0:(self.row_detail(param))))
+        self.add_widget_tool_bar(text='Novo', width = 10, command=(lambda param=1:(self.row_detail(param))))
+        self.add_widget_tool_bar(text='Nova Cópia', width = 10, command=(lambda param=2:(self.row_detail(param))))
+        id_saida_produtos= DBField(field_name='id_saida_produtos',label='Saida Produtos', width=5, visible=False)
+        self.columns = [data_inicio, product_gtin, desc_produto, quantidade, id_saida_produtos]
+        self.scroll.set_header(self.columns)
+               
+    def row_detail(self, state):
+        data_copy = {} #armazenará os dados da cópia
+        if state: #state == 1 ou == 2 chama form de inclusão 
+            if state == 2: #novo com cópia
+                if self.last_clicked_row == -1:
+                    return
+                state = 1 #volta para o estado de inclusão, o estado dois serve para indicar uma inclusão com cópia
+                saida_produto = self.get_grid_data_by_fieldname(self.last_clicked_row)
+                data_copy = saida_produto.copy()
+                #retira as chaves que não são necessárias (que não se quer copiar para o novo item
+                data_copy.pop('id_saida_produtos')
+                data_copy.pop('ds_produto')
+                data_copy['dt_saida'] = datetime.datetime.now().strftime('%d/%m/%Y')
+            else:
+                data_copy['dt_saida'] = datetime.datetime.now().strftime('%d/%m/%Y')
+                data_copy['qt_saida'] = 1                
+                
+            make_frame_exit_window(master=self, 
+                                  Frame=FrameExit,
+                                  keys=None,
+                                  state=state, 
+                                  data_copy = data_copy) 
+        else:#state !=1;chama form de update
+            if self.last_clicked_row == -1:
+                    return
+            
+            saida_produto = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            
+            
+            make_frame_exit_window(master=self, 
+                                   Frame=FrameExit,
+                                   keys={'id_saida_produtos':saida_produto['id_saida_produtos']}, 
+                                   state=state, 
+                                   data_copy = data_copy)
 
 class FrameSearchStock(FrameGridSearch):
     def __init__(self, master, connection, **kwargs):
@@ -952,7 +1189,16 @@ def make_window(master=None, Frame=None, title=None, resizable=True):
 
 
 def make_class_search_stock_window(master=None):
-    make_window(master=master, Frame=FrameSearchStock, title='Pesquisa Estoque', resizable=False)
+    make_window(master=master, 
+                Frame=FrameSearchStock, 
+                title='Pesquisa Estoque', 
+                resizable=False)
+
+def make_search_exit_window(master=None):
+    make_window(master=master, 
+                Frame=FrameSearchExit, 
+                title='Pesquisa Consumo de Produtos', 
+                resizable=False)
 
 def make_stock_adjustment_window(master = None,
                                  Frame=FormStockAdjustment,
@@ -971,8 +1217,26 @@ def make_stock_adjustment_window(master = None,
         f.pack(fill = tk.X)
         root.resizable(False, False)
         show_modal_win(root)
-        #root.mainloop()
-
+        
+def make_frame_exit_window(master = None,
+                                 Frame=FrameExit,
+                                 title='Saída Produto',
+                                 keys={'id_saida_produtos':'560'}, 
+                                 state=1, 
+                                 data_copy = {}):
+    if master:
+        root = tk.Toplevel(master)
+        root.conn = master.conn
+    else:
+        root = tk.Tk()
+    
+    root.conn = engine.connect()
+    root.title(title)
+    if Frame:
+        f = Frame(root, root.conn, keys, state, data_copy)
+        f.pack(fill = tk.X)
+        root.resizable(False, False)
+        show_modal_win(root)
 def main():
     make_class_search_stock_window()
 #    make_product_window()
@@ -983,3 +1247,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+#    test_entrydatetime(None)

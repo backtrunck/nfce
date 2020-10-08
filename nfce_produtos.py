@@ -4,8 +4,12 @@ from tkinter.messagebox import showwarning
 import nfce_gui
 from fields import Field
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
-from interfaces_graficas.db import FrameGridManipulation, DBField, ComboBoxDB, FrameFormData, FrameGridSearch
-from interfaces_graficas import show_modal_win, ChkButton
+from interfaces_graficas.db import FrameGridManipulation, \
+                                   DBField, \
+                                   ComboBoxDB, \
+                                   FrameFormData, \
+                                   FrameGridSearch
+from interfaces_graficas import show_modal_win, ChkButton, EntryDateTime
 from sqlalchemy import text
 from sqlalchemy.sql import select, and_
 from nfce_models import engine, \
@@ -351,17 +355,11 @@ class FrameSearchProducts(FrameGridSearch):
                         type_widget=tk.Entry)
         self.add_widget(qt_item_embalagem, e)
         
-#        f = tk.Frame(fr)
-#        f.pack(fill=tk.X)        
-#        tk.Label(f, text='Data Criação:', width=11,  anchor='e').pack(side=tk.LEFT , anchor='w')
-#        e = tk.Label(f, width=11, relief=tk.SUNKEN)
-#        e.pack(side=tk.LEFT, pady=2)
         dt_criacao = DBField(field_name='dt_criacao',
                         comparison_operator = Field.OP_EQUAL,
                         label='Data Criação.',
-                        width=10,
-                        type_widget=tk.Entry)
-#        self.add_widget(dt_criacao, e)
+                        width=16,
+                        type_widget=EntryDateTime)
         
         self.add_widget_tool_bar(text='Detalhar', width = 10, command=(lambda param=0:(self.row_detail(param))))
         self.add_widget_tool_bar(text='Novo', width = 10, command=(lambda param=1:(self.row_detail(param))))
@@ -467,8 +465,10 @@ class FormGtin(FrameFormData):
 
 
     def __init__(self, master, connection, keys, state=0, ):
+        #chama a classe pai, passando a tabela vinculada, o estado(inclusão/alteração) e as chaves
         super().__init__(master, connection, data_table=products_gtin_t, state=state, data_keys=keys)
         
+        #cria o campo cd_ean_produto
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Gtin:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
@@ -478,6 +478,7 @@ class FormGtin(FrameFormData):
         cd_ean_produto = DBField(field_name='cd_ean_produto', comparison_operator = '=', label='cd_ean_produto', width=14, type_widget=tk.Entry)
         self.add_widget(cd_ean_produto, e)
         
+        #cria o campo ds_produto
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Produto:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
@@ -486,7 +487,8 @@ class FormGtin(FrameFormData):
         
         ds_produto = DBField(field_name='ds_produto', comparison_operator = '=', label='Produto', width=40, type_widget=tk.Entry)
         self.add_widget(ds_produto, e)
-
+        
+         #cria o campo cd_ncm_produto
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='NCM.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
@@ -496,6 +498,7 @@ class FormGtin(FrameFormData):
         cd_ncm_produto = DBField(field_name='cd_ncm_produto', comparison_operator = '=', label='Classif.', width=5, type_widget=ChkButton)
         self.add_widget(cd_ncm_produto, e)
         
+        #cria o campo manual
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Manual.:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
@@ -505,6 +508,7 @@ class FormGtin(FrameFormData):
         manual = DBField(field_name='manual', comparison_operator = '=', label='Manual.', width=5, type_widget=ChkButton)
         self.add_widget(manual, e)
         
+        #cria o campo cd_ean_interno
         f = tk.Frame(self.form)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Gtin Interno:', width=7,  anchor='e').pack(side=tk.LEFT , anchor='w')
@@ -514,12 +518,11 @@ class FormGtin(FrameFormData):
         cd_ean_interno = DBField(field_name='cd_ean_interno', comparison_operator = '=', label='cd_ean_interno', width=14, type_widget=tk.Entry)
         self.add_widget(cd_ean_interno, e)
 
-        
+        #se o estado for de alteração, pega os dados no BD a partir das chaves
         if self.state == self.STATE_UPDATE:
             data = self.get_form_dbdata(self.data_keys) 
             self.set_form_dbdata(data)
 
-        
 
 class FrameProduct(FrameGridManipulation):
 
