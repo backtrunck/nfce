@@ -12,7 +12,7 @@ cur/
 tmp/
 scripts.sql/
 __pycache__/
-data/
+#data/
 *.DS_Store
 .ipynb_checkpoints/
 *.ipynb
