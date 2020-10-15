@@ -17,4 +17,4 @@ data/
 .ipynb_checkpoints/
 *.ipynb
 .gitignore
-.venv/
+venv/
