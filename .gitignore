@@ -10,7 +10,7 @@
 *~
 cur/
 tmp/
-scripts.sql/
+#scripts.sql/
 __pycache__/
 #data/
 *.DS_Store

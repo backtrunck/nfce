@@ -1,0 +1,175 @@
+1;Costela de Boi;1
+2;Contra-Filé;1
+3;Picanha;1
+4;Musculo;1
+5;Picanha;1
+6;Bacon;1
+7;Coração de Frango;1
+8;Coxinha da Asa;1
+9;Carne Defumada;1
+10;Leite Desnatado;1
+11;Leite Integral;1
+12;Creme de Leite;1
+13;Leite em Pó Integral;1
+14;Leite Condensado;1
+15;Iogurte;1
+16;Manteiga;1
+17;Queijo Mussarela;1
+18;Requeijão;1
+19;Queijo Gorgonzola;1
+20;Queijo Parmesão;1
+21;Queijo Prato;1
+22;Queijo Coalho;1
+23;Ovos;1
+24;Tomate;1
+25;Cebola;1
+26;Alho;1
+27;Cebolinha;1
+28;Coentro;1
+29;Rolinho Primavera;1
+30;Feijão;1
+31;Feijão Branco;1
+32;Feijão Fradinho;1
+33;Coco;1
+34;Castanha do Pará;1
+35;Castanha de Caju;1
+36;Banana da Terra;1
+37;Banana da Prata;1
+38;Abacaxi;1
+39;Abacate;1
+40;Laranja;1
+41;Tangerina;1
+42;Limão;1
+43;Maracujá;1
+44;Maçã;1
+45;Ameixa Seca;1
+46;Café Torrado;1
+47;Pipoca;1
+48;Arroz Integral;1
+49;Arrroz;1
+50;Farinha de Aveia;1
+51;Cuzcuz;1
+52;Amendoim;1
+53;Óleo de Soja;1
+54;Azeite de Oliva;1
+55;Azeite de Oliva;1
+56;Linguiça Toscana;1
+57;Linguiça Frango Toscana;1
+59;Linguiça Calabresa;1
+58;Peito de Peru Defumado;1
+60;Nuggets;1
+61;Embalagem p/ Viagem;1
+62;Taxa de Entrega;1
+63;Presunto;1
+64;Costela Barbequeur;1
+65;Açucar;1
+66;Chocolate Branco;1
+67;Chocolate;1
+68;Ovo de Pascoa;1
+69;Creme de Avelã Nutela;1
+70;Mistura de Bolo;1
+71;Pão de Queijo;1
+72;Massa de Macarão Talharim;1
+73;Massa de Lazanha;1
+74;Massa de Macarão Parafuso;1
+75;Comida a Quilo;1
+76;Yakisoba;1
+77;Tapioca;1
+78;Biscoito de Arroz;1
+79;Pão Francês;1
+80;Biscoito Avoador;1
+81;Biscoito de Leite;1
+82;Biscoito Ch Petit Beurre;1
+83;Biscoito Pimentinha;1
+84;Biscoito Bono;1
+85;Biscoito Maria;1
+86;Biscoito Cream Craker;1
+87;Biscoito Sequilho Pingo de Ouro;1
+88;Chocolata Kit Kat;1
+89;Pão de Milho;1
+90;Pão de Forma;1
+91;Pão Delícia;1
+92;Empanada;1
+93;Pão Integral;1
+94;Biscoito Pilar;1
+95;Pão de Leite;1
+96;Mini Paguete;1
+97;Pizza;1
+98;Bolo de Limão;1
+99;Pamonha;1
+100;Polpa de Tangerina;1
+101;Suco de Uva;1
+102;Leite de Coco;1
+103;Molho Soyo;1
+104;Molho de Tomate;1
+105;Chiclete;1
+106;Camarão Internacional;1
+107;Refrigerante;1
+108;Cerveja;1
+109;Alcool Gel;1
+110;Sal;1
+111;Aguarrás/Tinner;1
+112;Gasolina;1
+113;Óleo Diesel;1
+114;Água Sanitária;1
+115;Vitamina C;1
+116;Losartana;1
+117;Fármacos;1
+118;Tintas/Vernizes;1
+119;Creme Dental;1
+120;Sabonete;1
+121;Sabonete Líquido;1
+122;Detergente;1
+123;Limpeza/Multiuso;1
+124;Líquido Ariel;1
+125;Sabão em Pó Omo;1
+126;Fósforo;1
+127;Kalipso;1
+128;Desinfetante;1
+129;Ypê Aconchego;1
+130;Mon Bijou;1
+131;Luvas p/ Limpeza;1
+132;Madeiras/MDF;1
+133;Papel Manteiga;1
+134;Papel Higiênico;1
+135;Guardanapo;1
+136;Papel Toalha;1
+137;Filtro de Papel;1
+138;Máscara de Proteção;1
+139;Calçados;1
+140;Esponja para Prato;1
+141;Esponja de Aço;1
+142;Barbeador;1
+143;Escova de Dente;1
+144;Rolo de Espuma;1
+145;Absorvente Íntimo;1
+146;A Classificar;0
+147;Cenoura;1
+148;Carne Com Osso;0
+149;Carne sem Osso;0
+150;Carne Suína Fresca;0
+151;Carne/Pedaços Frescos de Aves;0
+152;Carne/Pedaços Congelados de Ave;0
+153;Carne Suína Defumada/Salgada;0
+154;Linguiça/Enchidos;0
+155;Outras preparações de aves;0
+156;Outras preparações de carne suína;0
+157;Refeição crustáceos/moluscos;0
+158;Outras preparações de chocolate;0
+159;Massas Não Cozidas c/ Ovos;0
+160;Massas Não Cozidas;0
+161;Massas recheadas;0
+162;Outras massas alimentícias;0
+163;Produtos a base de Cereais;0
+164;Pães;0
+165;Bolachas/Biscoitos;0
+166;Waffles;0
+167;Outros produtos de padaria;0
+168;Polpa de Fruta;0
+169;Suco de Frutas;0
+170;Refeição;0
+171;Vodca;0
+172;Amassiante;0
+173;Guardanapo/Papel Toalha;0
+174;Artigos Téxtil;0
+175;Lapiseiras;0

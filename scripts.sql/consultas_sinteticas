@@ -1,0 +1,59 @@
+select nf.nu_nfce as nu_nfce ,nf.cnpj as cnpj ,nf.dt_emissao as dt_emissao,e.razao_social as razao_social,
+ps.vl_prod_serv as vl_produto ,ps.vl_desconto_prod_serv as vl_desconto,ps.qt_prod_serv as qt_produto,
+ROUND(((`ps`.`vl_prod_serv` - `ps`.`vl_desconto_prod_serv`) / `ps`.`qt_prod_serv`),4) AS `vl_unitario`,
+p.ds_produto as ds_produto
+from nota_fiscal nf
+inner join produtos_servicos ps
+on nf.nu_nfce  = ps.nu_nfce and
+   nf.cd_uf = ps.cd_uf and
+   nf.serie = ps.serie and
+   nf.cd_modelo = ps.cd_modelo and
+   nf.cnpj = ps.cnpj
+inner join produtos_x_produtos_gtin pg
+on ps.cd_ean_prod_serv = pg.cd_ean_produto
+inner join produtos p 
+on p.id_produto = pg.id_produto
+inner join emitente e 
+on e.cnpj = nf.cnpj
+union all
+select nf.nu_nfce,nf.cnpj,nf.dt_emissao,e.razao_social,
+ps.vl_prod_serv,ps.vl_desconto_prod_serv,ps.qt_prod_serv,
+ROUND(((`ps`.`vl_prod_serv` - `ps`.`vl_desconto_prod_serv`) / `ps`.`qt_prod_serv`),4) AS `vl_unitario`,
+p.ds_produto
+from nota_fiscal nf
+inner join produtos_servicos ps
+on nf.nu_nfce  = ps.nu_nfce and
+   nf.cd_uf = ps.cd_uf and
+   nf.serie = ps.serie and
+   nf.cd_modelo = ps.cd_modelo and
+   nf.cnpj = ps.cnpj
+inner join produtos_x_prod_serv_sem_gtin pg
+on ps.cd_prod_serv = pg.cd_prod_serv and 
+   ps.cnpj = pg.cnpj
+inner join produtos p
+on pg.id_produto = p.id_produto
+inner join emitente e 
+on e.cnpj = nf.cnpj;
+
+select nf.nu_nfce,max(vl_total),sum(vl_prod_serv -vl_desconto_prod_serv) 
+from nota_fiscal nf
+inner join produtos_servicos ps
+on nf.nu_nfce  = ps.nu_nfce and
+   nf.cd_uf = ps.cd_uf and
+   nf.serie = ps.serie and
+   nf.cd_modelo = ps.cd_modelo and
+   nf.cnpj = ps.cnpj
+group by nu_nfce;
+
+
+select count(*) from produtos_servicos where cd_ean_prod_serv = 'SEM GTIN'; /*256 com gtin, 143 sem gtin*/
+
+
+/*Códigos de Barras e id_produto*/
+select ppg.id_produto, p.ds_produto,pg.cd_ean_produto,pg.ds_produto 
+from produtos_x_produtos_gtin ppg  
+inner join produtos p 
+on p.id_produto = ppg.id_produto 
+inner join produtos_gtin pg
+on pg.cd_ean_produto = ppg.cd_ean_produto 
+order by p.ds_produto ;
