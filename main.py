@@ -21,7 +21,7 @@ def main():
         return
         
     root = tk.Tk()
-    root.title('Controle de Compras v0.1')
+    root.title('Controle de Compras v0.3')
     root.geometry("900x700")
     img = tk.PhotoImage(file='./static/icons8-carrinho-de-compras-carregado-48.png')
     root.tk.call('wm', 'iconphoto', root._w, img)

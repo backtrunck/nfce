@@ -9,7 +9,8 @@ from interfaces_graficas import show_modal_win
 from nfce import    NfceBd,\
                     NfceParse,\
                     NfceArquivoInvalido,\
-                    make_logs_path
+                    make_logs_path, \
+                    renomear_arquivos_nfce
 
 
 def send_invoice_to_csv_file(invoice, csv_file = '', print_header = True):
@@ -84,7 +85,8 @@ def make_window(master = None, db_connection = None):
     lbl = LabelFrame(frm, text = "Enviar saída para:")    
     lbl.pack(fill=X)
     option = StringVar(root)
-    option.set('Arquivo *.csv')
+    #option.set('Arquivo *.csv')
+    option.set('Banco de Dados')
     
     optMenu = OptionMenu(lbl,  option,  'Banco de Dados',  'Arquivo *.csv')
     optMenu.pack(fill = X)
@@ -217,12 +219,18 @@ def send_invoices(output):
         print_header = True        
         if files:
             for file in files:
+                file_name = util.obter_nome_arquivo_e_extensao(file)[0]
+                if csv_file == None and file_name[0:3].lower() == 'nf_':    #verifica se vai enviar para o bd e se o arquivo já foi renomeado
+                    continue                                       #se já foi renomeado pula pro próximo
                 send_invoice(   output = output, 
                                 invoice_file = file, 
                                 log_file_name = log_file_name, 
                                 csv_file = csv_file, 
                                 print_header = print_header)   
-                print_header = False            #já imprimiu o header, não imprimi mais        
+                print_header = False            #já imprimiu o header, não imprimi mais 
+            if csv_file == None:
+                renomear_arquivos_nfce(directory)
+        
         messagebox.showinfo(title='Importar Nota Fiscal Eletronica', message='Operação Finalizada!')
         if csv_file:
             csv_file.close()
