@@ -815,6 +815,8 @@ class NfceParse():
     
     def obter_dados_cobranca(self):
         ''' Obtem os dados da cobrança do arquivo html relativo a Notas Fiscais'''
+        
+        #formato da cobrança mudou: 22.10.2020. Rever rotina. Retirada!!!
         try:
             self.log.info('-;Obtendo dados sobre Cobrança')
             
@@ -829,8 +831,13 @@ class NfceParse():
                 #str_log = ''
                 cobranca = {}
                 for indice,  span in enumerate(spans):  
-                    valor = span.get_text()
-                    cobranca[campos[indice]] = valor
+                    valor = span.get_text().strip()
+                    
+                    if indice < len(campos): #começou a aparecer um span (o último) a mais no grupo da cobrança. Não deixando que de o erro de index out of range (rever depois)
+                        if campos[indice] == 'vl_':   #compara os 3 primeiros caracters do campo para saber se é um campo numerico.
+                            cobranca[campos[indice]] = util.converte_monetario_float(valor)
+                        else:
+                            cobranca[campos[indice]] = valor
                     #str_log += str(campos[indice]) + ' = ' + str(valor) + ' '
                     
                 self.log.info('nota_fiscal_formas_pagamentos;' + str(cobranca))
@@ -912,9 +919,10 @@ class NfceBd():
         invoice_data['ds_informacoes_complementares'] = extra_data
         self.insert_invoice_data_in_db(invoice_data, self.session) #grava na base de dados a nota fiscal
         
-        payment_data = invoice_parser.obter_dados_cobranca()    #pega os dados da cobrança da nota fiscal 
-        self.__include_keys(payment_data, invoice_parser) #inclui as chaves primárias da nota fiscal
-        self.insert_payment_data_in_db(payment_data, self.session) #grava na base de dados os dados relativos ao pagamento da nota
+        ## 22.10.2020. retirado. houve alteração do layout. analisar!!!
+        #payment_data = invoice_parser.obter_dados_cobranca()    #pega os dados da cobrança da nota fiscal 
+        #self.__include_keys(payment_data, invoice_parser) #inclui as chaves primárias da nota fiscal
+        #self.insert_payment_data_in_db(payment_data, self.session) #grava na base de dados os dados relativos ao pagamento da nota
         
         total_data = invoice_parser.obter_dados_valores_totais()  #pega os dados relativos ao total da nota fiscal
         self.__include_keys(total_data, invoice_parser)        #inclui as chaves primárias da nota fiscal
