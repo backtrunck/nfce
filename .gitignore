@@ -15,6 +15,6 @@ __pycache__/
 #data/
 *.DS_Store
 .ipynb_checkpoints/
-*.ipynb
+#*.ipynb
 .gitignore
 venv/
