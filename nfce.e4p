@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project nfce -->
-<!-- Saved: 2020-07-05, 18:12:00 -->
+<!-- Saved: 2020-11-16, 23:13:38 -->
 <!-- Copyright (C) 2020 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -27,6 +27,7 @@
     <Source>interfaces_graficas/vertical_scrolled_frame.py</Source>
     <Source>invoice_scraper.py</Source>
     <Source>main.py</Source>
+    <Source>nf_gov_para_csv.py</Source>
     <Source>nfce.py</Source>
     <Source>nfce_db.py</Source>
     <Source>nfce_estoque.py</Source>

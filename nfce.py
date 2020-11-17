@@ -1,4 +1,4 @@
-import re, os, datetime, util, sys, logging, shutil
+import re, os, datetime, util, sys, logging, shutil, csv
 import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
@@ -160,97 +160,125 @@ class NfceParseGovBr():
         id = self.dados_nota_fiscal.find('div', id = 'Inf')
         legend_inf_contrib = id.find('legend', text='Informações Complementares de Interesse do Contribuinte')
         return legend_inf_contrib.parent.div.get_text().strip()
-
+    
+    def obter_dados_toggable_box(self, table, dados_produto):
+        
+        dado = table.find('label', text='Código do Produto').parent.span.get_text().strip()  
+        dados_produto['cd_prod_serv'] = dado
+        dado = table.find('label', text='Código NCM').parent.span.get_text().strip()  
+        dados_produto['cd_ncm_prod_serv'] = dado
+        dado = table.find('label', text='Código CEST').parent.span.get_text().strip()  
+        dados_produto['cest_prod_serv'] = dado
+        dado = table.find('label', text='Código EX da TIPI').parent.span.get_text().strip()  
+        dados_produto['cd_ex_tipi_prod_serv'] = dado
+        dado = table.find('label', text='CFOP').parent.span.get_text().strip() 
+        dados_produto['cfop_prod_serv'] = dado
+        dado = table.find('label', text='Outras Despesas Acessórias').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['vl_out_desp_acess'] =  util.converte_monetario_float(dado)
+        dado = table.find('label', text='Valor do Desconto').parent.span.get_text().strip() 
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['vl_desconto_prod_serv'] = util.converte_monetario_float(dado)
+        dado = table.find('label', text='Valor Total do Frete').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['vl_frete_prod_serv'] = util.converte_monetario_float(dado)
+        dado = table.find('label', text='Valor do Seguro').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['vl_seguro_prod_serv'] = util.converte_monetario_float(dado)
+        
+        #table = div_prod.find('table', class_="box")
+        dado = table.find('label', text='Código EAN Comercial').parent.span.get_text().strip()  
+        dados_produto['cd_ean_prod_serv'] = dado
+        dado = table.find('label', text='Unidade Comercial').parent.span.get_text().strip()  
+        dados_produto['un_comercial_prod_serv'] = dado
+        dado = table.find('label', text='Quantidade Comercial').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['qt_comercial_prod_serv'] = util.converte_monetario_float(dado)
+        dado = table.find('label', text='Código EAN Tributável').parent.span.get_text().strip() 
+        dados_produto['cd_ean_tributavel_prod_serv'] = dado
+        dado = table.find('label', text='Unidade Tributável').parent.span.get_text().strip()  
+        dados_produto['un_tributavel_prod_serv'] = dado
+        dado = table.find('label', text='Quantidade Tributável').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['qt_tributavel_prod_serv'] = util.converte_monetario_float(dado)
+        dado = table.find('label', text='Valor unitário de comercialização').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['vl_unit_comerc_prod_serv '] = util.converte_monetario_float(dado)
+        dado = table.find('label', text='Valor unitário de tributação').parent.span.get_text().strip()  
+        if dado.strip()=='':
+            dado = 0
+        dados_produto['vl_unit_tribut_prod_serv'] = util.converte_monetario_float(dado)                
+        dado = table.find('label', text='Número do pedido de compra').parent.span.get_text().strip()  
+        dados_produto['nu_pedido_compra_prod_serv'] = dado                
+        dado = table.find('label', text='Item do pedido de compra').parent.span.get_text().strip()  
+        dados_produto['item_pedido_prod_serv'] = dado                
+        dado = table.find('label', text='Valor Aproximado dos Tributos').parent.span.get_text().strip()  
+        dados_produto['vl_aprox_tributos_prod_serv'] = util.converte_monetario_float(dado)                
+        dado = table.find('label', text='Número da FCI').parent.span.get_text()  
+        dados_produto['nu_fci_prod_serv'] = dado
+        
+        dado = table.find('label', text=re.compile('\s*Origem da Mercadoria\s*')).parent.span.get_text().strip()  
+        dados_produto['ds_origem_mercadoria'] = dado  
+        tag = table.find('label', text=re.compile('\s*Tributação do ICMS\s*'))
+        if tag: #para o caso de tributação pelo simples
+            dado = table.find('label', text=re.compile('\s*Tributação do ICMS\s*')).parent.span.get_text().strip() 
+            dados_produto['ds_tributacao_icms'] = dado           
+#            tag = table.find('label', text=re.compile('\s*Valor da BC do ICMS ST\s*'))
+#            if tag: #se existir uma label com conteúdo "Valor da BC do ICMS ST"
+#                dado = tag.parent.span.get_text().strip()  #pega o valor da base de calculo do ICMS  
+#                #dado = table.find('label', text=re.compile('\s*Valor da BC do ICMS ST\s*')).parent.span.get_text().strip()  
+#            else:     
+#                   pass
+#            dados_produto['ds_modal_defini_bc_icm'] = util.converte_monetario_float(dado)                
+#            dado = table.find('label', text=re.compile('\s*Valor da base de cálculo efetiva\s*')).parent.span.get_text().strip() 
+#            dados_produto['vl_base_calculo_icms_normal'] = util.converte_monetario_float(dado)                
+#            dado = table.find('label', text=re.compile('\s*Alíquota do ICMS efetiva\s*')).parent.span.get_text().strip() 
+#            dados_produto['vl_aliquota_icms_normal'] = util.converte_monetario_float(dado)                
+#            dado = table.find('label', text=re.compile('\s*Valor do ICMS efetivo\s*')).parent.span.get_text().strip()
+#            dados_produto['vl_icms_normal'] = util.converte_monetario_float(dado)   
+        else:
+            dados_produto['ds_tributacao_icms'] = 'Simples Nacional / ICMS Não incluído'   
+#            dados_produto['ds_modal_defini_bc_icm'] = ''
+#            dados_produto['vl_base_calculo_icms_normal'] = 0.0                
+#            dados_produto['vl_aliquota_icms_normal'] = 0.0
+#            dados_produto['vl_icms_normal'] = 0.0 
+        
+    def obter_dados_toggle_box(self, table, dados_produto):
+        ''' Obtem os dados do produto contido na tabela "'toggle blox" '''
+        dado = table.find('td', class_='fixo-prod-serv-numero').span.get_text().strip()
+        dados_produto['nu_prod_serv'] = dado
+        dado = table.find('td', class_='fixo-prod-serv-descricao').span.get_text().strip()
+        dados_produto['ds_prod_serv'] = dado
+        dado = table.find('td', class_='fixo-prod-serv-qtd').span.get_text().strip()  
+        dados_produto['qt_prod_serv'] = util.converte_monetario_float(dado)
+        dado = table.find('td', class_='fixo-prod-serv-vb').span.get_text().strip()  
+        dados_produto['vl_prod_serv'] = util.converte_monetario_float(dado)                
+        dado = table.find('td', class_='fixo-prod-serv-uc').span.get_text().strip()  
+        dados_produto['un_comercial_prod_serv'] = dado
+        return dados_produto
+    
+    
     def obter_dados_prod_serv(self):       
         dados_prod_serv = []
         div = self.dados_nota_fiscal.find('div', id = 'Prod')
-        #div_prods = div.findAll('div')
-        #[obj for obj in div.children if type(obj) == Tag]
-        for div_prod in div.children:
-            if type(div_prod) != NavigableString:
-                dado_prod_serv = {}
-                
-                table = div_prod.find('table', class_="toggle box")
-                dado = table.find('td', class_='fixo-prod-serv-numero').span.get_text().strip()
-                dado_prod_serv['nu_prod_serv'] = dado
-                dado = table.find('td', class_='fixo-prod-serv-descricao').span.get_text().strip()
-                dado_prod_serv['ds_prod_serv'] = dado
-                dado = table.find('td', class_='fixo-prod-serv-qtd').span.get_text().strip()  
-                dado_prod_serv['qt_prod_serv'] = util.converte_monetario_float(dado)
-                dado = table.find('td', class_='fixo-prod-serv-vb').span.get_text().strip()  
-                dado_prod_serv['vl_prod_serv'] = util.converte_monetario_float(dado)                
-                dado = table.find('td', class_='fixo-prod-serv-uc').span.get_text().strip()  
-                dado_prod_serv['un_comercial_prod_serv'] = dado
-                
-                table = div_prod.find('table', class_="toggable box")
-                dado = table.find('label', text='Código do Produto').parent.span.get_text().strip()  
-                dado_prod_serv['cd_prod_serv'] = dado
-                dado = table.find('label', text='Código NCM').parent.span.get_text().strip()  
-                dado_prod_serv['cd_ncm_prod_serv'] = dado
-                dado = table.find('label', text='Código CEST').parent.span.get_text().strip()  
-                dado_prod_serv['cest_prod_serv'] = dado
-                dado = table.find('label', text='Código EX da TIPI').parent.span.get_text().strip()  
-                dado_prod_serv['cd_ex_tipi_prod_serv'] = dado
-                dado = table.find('label', text='CFOP').parent.span.get_text().strip() 
-                dado_prod_serv['cfop_prod_serv'] = dado
-                dado = table.find('label', text='Outras Despesas Acessórias').parent.span.get_text().strip()  
-                dado_prod_serv['vl_out_desp_acess'] =  util.converte_monetario_float(dado)
-                dado = table.find('label', text='Valor do Desconto').parent.span.get_text().strip()  
-                dado_prod_serv['vl_desconto_prod_serv'] = util.converte_monetario_float(dado)
-                dado = table.find('label', text='Valor Total do Frete').parent.span.get_text().strip()  
-                dado_prod_serv['vl_frete_prod_serv'] = util.converte_monetario_float(dado)
-                dado = table.find('label', text='Valor do Seguro').parent.span.get_text().strip()  
-                dado_prod_serv['vl_seguro_prod_serv'] = util.converte_monetario_float(dado)
-                
-                #table = div_prod.find('table', class_="box")
-                dado = table.find('label', text='Código EAN Comercial').parent.span.get_text().strip()  
-                dado_prod_serv['cd_ean_prod_serv'] = dado
-                dado = table.find('label', text='Unidade Comercial').parent.span.get_text().strip()  
-                dado_prod_serv['un_comercial_prod_serv'] = dado
-                dado = table.find('label', text='Quantidade Comercial').parent.span.get_text().strip()  
-                dado_prod_serv['qt_comercial_prod_serv'] = util.converte_monetario_float(dado)
-                dado = table.find('label', text='Código EAN Tributável').parent.span.get_text().strip() 
-                dado_prod_serv['cd_ean_tributavel_prod_serv'] = dado
-                dado = table.find('label', text='Unidade Tributável').parent.span.get_text().strip()  
-                dado_prod_serv['un_tributavel_prod_serv'] = dado
-                dado = table.find('label', text='Quantidade Tributável').parent.span.get_text().strip()  
-                dado_prod_serv['qt_tributavel_prod_serv'] = util.converte_monetario_float(dado)
-                dado = table.find('label', text='Valor unitário de comercialização').parent.span.get_text().strip()  
-                dado_prod_serv['vl_unit_comerc_prod_serv '] = util.converte_monetario_float(dado)
-                dado = table.find('label', text='Valor unitário de tributação').parent.span.get_text().strip()  
-                dado_prod_serv['vl_unit_tribut_prod_serv'] = util.converte_monetario_float(dado)                
-                dado = table.find('label', text='Número do pedido de compra').parent.span.get_text().strip()  
-                dado_prod_serv['nu_pedido_compra_prod_serv'] = dado                
-                dado = table.find('label', text='Item do pedido de compra').parent.span.get_text().strip()  
-                dado_prod_serv['item_pedido_prod_serv'] = dado                
-                dado = table.find('label', text='Valor Aproximado dos Tributos').parent.span.get_text().strip()  
-                dado_prod_serv['vl_aprox_tributos_prod_serv'] = util.converte_monetario_float(dado)                
-                dado = table.find('label', text='Número da FCI').parent.span.get_text()  
-                dado_prod_serv['nu_fci_prod_serv'] = dado
-                
-                dado = table.find('label', text=re.compile('\s*Origem da Mercadoria\s*')).parent.span.get_text().strip()  
-                dado_prod_serv['ds_origem_mercadoria'] = dado  
-                tag = table.find('label', text=re.compile('\s*Tributação do ICMS\s*'))
-                if tag: #para o caso de tributação pelo simples
-                    dado = table.find('label', text=re.compile('\s*Tributação do ICMS\s*')).parent.span.get_text().strip() 
-                    dado_prod_serv['ds_tributacao_icms'] = dado                
-                    dado = table.find('label', text=re.compile('\s*Valor da BC do ICMS ST\s*')).parent.span.get_text().strip()  
-                    dado_prod_serv['ds_modal_defini_bc_icm'] = util.converte_monetario_float(dado)                
-                    dado = table.find('label', text=re.compile('\s*Valor da base de cálculo efetiva\s*')).parent.span.get_text().strip() 
-                    dado_prod_serv['vl_base_calculo_icms_normal'] = util.converte_monetario_float(dado)                
-                    dado = table.find('label', text=re.compile('\s*Alíquota do ICMS efetiva\s*')).parent.span.get_text().strip() 
-                    dado_prod_serv['vl_aliquota_icms_normal'] = util.converte_monetario_float(dado)                
-                    dado = table.find('label', text=re.compile('\s*Valor do ICMS efetivo\s*')).parent.span.get_text().strip()
-                    dado_prod_serv['vl_icms_normal'] = util.converte_monetario_float(dado)   
-                else:
-                    dado_prod_serv['ds_tributacao_icms'] = 'Simples Nacional / ICMS Não incluído'   
-                    dado_prod_serv['ds_modal_defini_bc_icm'] = ''
-                    dado_prod_serv['vl_base_calculo_icms_normal'] = 0.0                
-                    dado_prod_serv['vl_aliquota_icms_normal'] = 0.0
-                    dado_prod_serv['vl_icms_normal'] = 0.0 
-                
-                dados_prod_serv.append(dado_prod_serv)
+        toggle_boxs = div.fieldset.div.findAll('table', class_='toggle box')
+        for table in toggle_boxs:
+            dado_prod_serv = {}
+            dado_prod_serv = self.obter_dados_toggle_box(table, dado_prod_serv)
+            togglable_box = table.nextSibling.nextSibling
+            if togglable_box['class'][0] == "toggable":
+                self.obter_dados_toggable_box(togglable_box, dado_prod_serv)
+            dados_prod_serv.append(dado_prod_serv)
         return dados_prod_serv
+
+
     def obter_data_saida(self):
         label_saida = self.dados_nota_fiscal.find('label', text = re.compile('\s*Data/Hora de Saída ou da Entrada\s*'))
         if label_saida:
@@ -927,10 +955,7 @@ class NfceBd():
         total_data = invoice_parser.obter_dados_valores_totais()  #pega os dados relativos ao total da nota fiscal
         self.__include_keys(total_data, invoice_parser)        #inclui as chaves primárias da nota fiscal
         self.insert_total_data_in_db(total_data, self.session) #grava na base de dados os dados relativos ao total da nota
-        
-        delivery_data = invoice_parser.obter_dados_transporte() #paga os dados relativos ao transporte da nota fiscal 
-        self.__include_keys(delivery_data, invoice_parser)#pega os dados relativos 
-        self.insert_delivery_data_in_db(delivery_data, self.session) #grava na base de dados os dados relativos ao transporte
+     
         
         products_data = invoice_parser.obter_dados_produtos_e_servicos() #pega os dados relativos aos produtos e serviços
         for product_data in products_data:
@@ -1716,7 +1741,7 @@ def make_logs_path():
     return log_path
 
 def teste_NfceParseGovBr():
-#    nfce = NfceParseGovBr('/home/lcreina/Documents/notas.fiscais/2020.06.04.memoria.hyper.fury.16gb.html', 
+#    nfce = NfceParseGovBr('', 
 #                          verbose_log = True)
     nfce = NfceParseGovBr('/home/lcreina/Documents/cgu/campo.alegre.de.lourdes/vania.dionisio/ct.33.2018/pagamentos/pp.124.nota.fiscal.html', 
                           verbose_log = True)
@@ -1729,7 +1754,74 @@ def teste_NfceParseGovBr():
     for i, dado_prod_serv in enumerate(nfce.obter_dados_prod_serv(), start=1):
         print(f'**** Produto e Serviços {i} ****')
         print('\n'.join([f'{chave}: {valor}' for chave,  valor in dado_prod_serv.items()]))
-    
+
+def nf_gov_para_csv(caminho):
+    '''
+        Gera um arquivo csv com os dados de notas fiscais constante na pasta
+         (parâmetros): caminho (string) caminho para a pasta onde se encontram os arquivos.
+         
+    '''
+    gerar_arquivo = False
+    if os.path.exists(caminho):                                #a pasta existe?      
+        print(f'Processando pasta {caminho} ...')
+        for arq in os.listdir(caminho):                        #para cada arquivo na pasta
+            if os.path.splitext(arq)[-1].lower() != '.html':   #verifica se é um arquivo html
+                continue                                       #se não for pula pro próximo
+            arq_nota_fiscal = os.path.join(caminho, arq)
+            try:
+                nota_fiscal = NfceParseGovBr(arq_nota_fiscal, 
+                                        verbose_log = True)   #lê o arquivo de nota fiscal
+            except Exception as e:
+                print(f'Erro - {e}')                                #se der erro, mostra o erro
+            else:                                                   #se não der erro na leitura, processa
+                emitente =  nota_fiscal.obter_dados_emitente()
+                dados_nota = nota_fiscal.obter_dados_nota()
+                dados_prod_serv = nota_fiscal.obter_dados_prod_serv()
+                if not gerar_arquivo:
+                    csv_file_name = os.path.join(caminho, 'nfs_gov.csv')
+                    print(csv_file_name)
+                    csv_file = open(csv_file_name, 'w')
+                    writer = csv.writer(csv_file, delimiter = ';',  quotechar = '"', quoting = csv.QUOTE_ALL)
+                    writer.writerow([ 'nu_nfce', 
+                                                'dt_emissao', 
+                                                'vl_total', 
+                                                'cnpj', 
+                                                'razao_social', 
+                                                'ds_prod_serv', 
+                                                'qt_prod_serv', 
+                                                'vl_prod_serv', 
+                                                'un_comercial_prod_serv', 
+                                                'vl_desconto_prod_serv', 
+                                                'cd_ean_prod_serv', 
+                                                'nu_prod_serv', 
+                                                'endereco', 
+                                                'bairro', 
+                                                'cd_municipio'])
+                    gerar_arquivo = True
+                                                
+                for prod_serv in dados_prod_serv:
+                    writer.writerow([   dados_nota['nu_nfce'], \
+                            dados_nota['dt_emissao'],  \
+                            dados_nota['vl_total'],    \
+                            emitente['cnpj'],     \
+                            emitente['razao_social'],    \
+                            prod_serv['ds_prod_serv'],   \
+                            prod_serv['qt_prod_serv'], \
+                            prod_serv['vl_prod_serv'],\
+                            prod_serv['un_comercial_prod_serv'], \
+                            prod_serv['vl_desconto_prod_serv'], \
+                            prod_serv['cd_ean_prod_serv'], \
+                           prod_serv['nu_prod_serv'], \
+                            emitente['endereco'],\
+                            emitente['bairro'], 
+                            emitente['cd_municipio']]) 
+        print('Processamento Finalizado.')
+        if gerar_arquivo: #se o csv foi gerado...
+            csv_file.close()
+    else:
+        print(f'Pasta inexistente: {caminho}')
+        
+        
 def main_2(nt_fiscal):  
        
     print('*' * 10, 'Dados da Nota Fiscal', '*' * 10)
@@ -1820,8 +1912,8 @@ if __name__ == '__main__':
 #    arquivo = 'page_source.html'
 #    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
 #    main_2(nt_fiscal)
-    renomear_arquivos_nfce('data/html_invoices')
-#    teste_NfceParseGovBr()
+#    renomear_arquivos_nfce('data/html_invoices')
+    teste_NfceParseGovBr()
     pass
     
 
