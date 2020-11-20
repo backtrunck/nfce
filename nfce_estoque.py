@@ -1238,11 +1238,12 @@ def make_frame_exit_window(master = None,
         root.resizable(False, False)
         show_modal_win(root)
 def main():
-    make_class_search_stock_window()
+#    make_class_search_stock_window()
 #    make_product_window()
 #    make_class_search_invoice_window()
 #    make_class_product_window()
 #    make_product_exit_window()
+    make_search_exit_window()
 #    make_product_gtin_window()
 
 if __name__ == '__main__':
