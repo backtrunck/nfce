@@ -10,7 +10,8 @@ from nfce import    NfceBd,\
                     NfceParse,\
                     NfceArquivoInvalido,\
                     make_logs_path, \
-                    renomear_arquivos_nfce
+                    renomear_arquivos_nfce, \
+                    NfceParseGovBr
 
 
 def send_invoice_to_csv_file(invoice, csv_file = '', print_header = True):
@@ -128,13 +129,20 @@ def send_invoice(output = '', \
     
     if invoice_file:
         try:
-            #obtem os dados da nota_fiscal, no arquivo
-            nt_fiscal = NfceParse(  arquivo_nfce = invoice_file, 
-                                    aj_texto = True,
-                                    aj_data = True,
-                                    aj_valor = True,
-                                    log_file_name=log_file_name)
-            
+            try:
+                #obtem os dados da nota_fiscal, no arquivo
+                nt_fiscal = NfceParse(  arquivo_nfce = invoice_file, 
+                                        aj_texto = True,
+                                        aj_data = True,
+                                        aj_valor = True,
+                                        log_file_name=log_file_name)
+            except  NfceArquivoInvalido: #caso o arquivo não seja da SEFAZ-BA, tenta  ver se é do gov.br
+                nt_fiscal = NfceParseGovBr(  arquivo_nfce = invoice_file, 
+                                                    aj_texto = True,
+                                                    aj_data = True,
+                                                    aj_valor = True,
+                                                    log_file_name=log_file_name)
+                                                    
             if output.get() == 'Arquivo *.csv':
                 
                 if not csv_file:                #verifica se esta importando uma nota

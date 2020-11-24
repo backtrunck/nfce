@@ -26,6 +26,7 @@ def get_engine_bd():
         host = '192.168.15.8'
         password = os.environ.get('PASS_DB_NTFCE')
         banco = 'nota_fiscal'
+#        banco = 'nota_fiscal_testes'
         engine = create_engine('mysql+pymysql://{}:{}@{}/{}'.format(user,password,host, banco), 
                                                             echo = False,
                                                             isolation_level="READ COMMITTED")

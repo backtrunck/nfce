@@ -2,7 +2,7 @@ import re, os, datetime, util, sys, logging, shutil, csv
 import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString, Tag
+#from bs4.element import NavigableString, Tag
 from nfce_db import PRODUCT_NO_CLASSIFIED
 from nfce_models import Session,\
                         NotaFiscal,\
@@ -16,7 +16,8 @@ from nfce_models import Session,\
                         ProdutoProdutoGtin,\
                         ProdutoGtin, \
                         ProdutoServicoAjuste
-
+#formatação da chave de acesso
+#https://tdn.totvs.com/pages/releaseview.action?pageId=351383045
 FORMATO_CD_ACESSO =     {'cd_uf':(0, 2),   
                          'ano_mes':(2, 6),         
                          'cnpj':(6, 20), 
@@ -115,6 +116,7 @@ class NfceParseGovBr():
             self.chaves_nota_fiscal['cd_uf'] = nfce['cd_uf']
             self.chaves_nota_fiscal['nu_nfce'] = nfce['nu_nfce']
             self.chave_acesso = nfce['chave_acesso']
+            self.numero_nota = nfce['numero']
         else:
             self.gravar_msq_log('-;Arquivo de Nota Fiscal Inválido: {}'.format(arquivo_nfce))
             raise NfceArquivoInvalido
@@ -141,6 +143,15 @@ class NfceParseGovBr():
             emitente = self.obter_dados_labels(div_emitente, LABELS_EMITENTE)
             emitente = ajustar_dados_emitente(emitente)
         return emitente
+    
+    def obter_chave_acesso(self):
+        return self.chave_acesso
+
+
+    def obter_dados_nfe_codigo_acesso(self, chave_acesso): 
+        #o parametro chave_acesso não é usado, esta função é uma adaptação para que o objeto NfcdParseGovBr possa ser utilizado no módulo import_invoice com se fosse uma NfceParser
+        return self.obter_dados_nota()
+
 
     def obter_dados_nota(self):
         dados_nota = {}
@@ -149,14 +160,17 @@ class NfceParseGovBr():
         dados_nota['cd_modelo'] = self.chaves_nota_fiscal['cd_modelo']
         dados_nota['cd_uf'] = self.chaves_nota_fiscal['cd_uf'] 
         dados_nota['nu_nfce'] = self.chaves_nota_fiscal['nu_nfce']
-        dados_nota['chave_acesso '] = self.chave_acesso
+        dados_nota['chave_acesso'] = self.chave_acesso
+        pos = FORMATO_CD_ACESSO['cd_forma_emissao']
+        dados_nota['cd_forma_emissao'] = self.chave_acesso[pos[0]:pos[1]]
         dados_nota['dt_emissao'] = self.obter_data_emissao()
         dados_nota['dt_saida'] = self.obter_data_saida()
         dados_nota['vl_total'] = self.obter_valor_total()
-        dados_nota['ds_informacoes_complementares'] = self.obter_dados_inf_compl()
+        dados_nota['ds_informacoes_complementares'] = self.obter_informacoes_complementares()
+        dados_nota['numero'] = self.numero_nota
         return dados_nota
-
-    def obter_dados_inf_compl(self):
+        
+    def obter_informacoes_complementares(self):
         id = self.dados_nota_fiscal.find('div', id = 'Inf')
         legend_inf_contrib = id.find('legend', text='Informações Complementares de Interesse do Contribuinte')
         return legend_inf_contrib.parent.div.get_text().strip()
@@ -191,6 +205,8 @@ class NfceParseGovBr():
         dados_produto['vl_seguro_prod_serv'] = util.converte_monetario_float(dado)
         
         #table = div_prod.find('table', class_="box")
+        dado = table.find('label', text='                          Indicador de Composição do Valor Total da NF-e').parent.span.get_text().strip()  
+        dados_produto['ind_composicao_prod_serv'] = dado
         dado = table.find('label', text='Código EAN Comercial').parent.span.get_text().strip()  
         dados_produto['cd_ean_prod_serv'] = dado
         dado = table.find('label', text='Unidade Comercial').parent.span.get_text().strip()  
@@ -210,13 +226,13 @@ class NfceParseGovBr():
         dado = table.find('label', text='Valor unitário de comercialização').parent.span.get_text().strip()  
         if dado.strip()=='':
             dado = 0
-        dados_produto['vl_unit_comerc_prod_serv '] = util.converte_monetario_float(dado)
+        dados_produto['vl_unit_comerc_prod_serv'] = util.converte_monetario_float(dado)
         dado = table.find('label', text='Valor unitário de tributação').parent.span.get_text().strip()  
         if dado.strip()=='':
             dado = 0
         dados_produto['vl_unit_tribut_prod_serv'] = util.converte_monetario_float(dado)                
         dado = table.find('label', text='Número do pedido de compra').parent.span.get_text().strip()  
-        dados_produto['nu_pedido_compra_prod_serv'] = dado                
+        dados_produto['nu_pedido_compra_prod_serv'] = dado[0:10]              
         dado = table.find('label', text='Item do pedido de compra').parent.span.get_text().strip()  
         dados_produto['item_pedido_prod_serv'] = dado                
         dado = table.find('label', text='Valor Aproximado dos Tributos').parent.span.get_text().strip()  
@@ -265,7 +281,7 @@ class NfceParseGovBr():
         return dados_produto
     
     
-    def obter_dados_prod_serv(self):       
+    def obter_dados_produtos_e_servicos(self):       
         dados_prod_serv = []
         div = self.dados_nota_fiscal.find('div', id = 'Prod')
         toggle_boxs = div.fieldset.div.findAll('table', class_='toggle box')
@@ -543,7 +559,6 @@ class NfceParse():
                 valor = codigo_acesso[ pos[0]:pos[1]]
                 dados_nota[chave] = valor
                 str_log += str(chave)+ ' = ' + str(valor) + ' '
-            if dados_completos:
                 dados_nota['chave_acesso'] = codigo_acesso
                 #inclui outros dados da nota
                 ntfce = self.obter_dados_nfc_e()
@@ -569,7 +584,7 @@ class NfceParse():
         
         if div:
             dados_nfc = obter_texto_labels(NfceParse._dados_nfc_e, div,  self.aj_texto,  self.aj_data, self.aj_valor)
-            return dados_nfc
+            return  dados_nfc
             
         else:
             return None
@@ -952,9 +967,10 @@ class NfceBd():
         #self.__include_keys(payment_data, invoice_parser) #inclui as chaves primárias da nota fiscal
         #self.insert_payment_data_in_db(payment_data, self.session) #grava na base de dados os dados relativos ao pagamento da nota
         
-        total_data = invoice_parser.obter_dados_valores_totais()  #pega os dados relativos ao total da nota fiscal
-        self.__include_keys(total_data, invoice_parser)        #inclui as chaves primárias da nota fiscal
-        self.insert_total_data_in_db(total_data, self.session) #grava na base de dados os dados relativos ao total da nota
+      #com a inclusão das notas fiscais de gov.br, foi retirado toda a parte de dados totais da nota 
+#        total_data = invoice_parser.obter_dados_valores_totais()  #pega os dados relativos ao total da nota fiscal
+#        self.__include_keys(total_data, invoice_parser)        #inclui as chaves primárias da nota fiscal
+#        self.insert_total_data_in_db(total_data, self.session) #grava na base de dados os dados relativos ao total da nota
      
         
         products_data = invoice_parser.obter_dados_produtos_e_servicos() #pega os dados relativos aos produtos e serviços
@@ -1751,7 +1767,7 @@ def teste_NfceParseGovBr():
     print()
     print('**** Dados da Nota Fiscal ****')
     print('\n'.join([f'{chave}: {valor}' for chave, valor in nfce.obter_dados_nota().items()]))
-    for i, dado_prod_serv in enumerate(nfce.obter_dados_prod_serv(), start=1):
+    for i, dado_prod_serv in enumerate(nfce.obter_dados_produtos_e_servicos(), start=1):
         print(f'**** Produto e Serviços {i} ****')
         print('\n'.join([f'{chave}: {valor}' for chave,  valor in dado_prod_serv.items()]))
 
@@ -1776,7 +1792,7 @@ def nf_gov_para_csv(caminho):
             else:                                                   #se não der erro na leitura, processa
                 emitente =  nota_fiscal.obter_dados_emitente()
                 dados_nota = nota_fiscal.obter_dados_nota()
-                dados_prod_serv = nota_fiscal.obter_dados_prod_serv()
+                dados_prod_serv = nota_fiscal.obter_dados_produtos_e_servicos()
                 if not gerar_arquivo:
                     csv_file_name = os.path.join(caminho, 'nfs_gov.csv')
                     print(csv_file_name)
@@ -1857,8 +1873,12 @@ def ajustar_dados_emitente(emitente):
        for chave, valor in dados_emitente.items():
             if chave in ('cd_municipio', 'cd_pais'):         #para dados do tipo '1-descricao' pega somente o dado antes do '-'
                 if isinstance(valor, str):
-                    dados_emitente[chave] = valor.split('-')[0]
-                    if not dados_emitente[chave].strip():
+                    dado = valor.split('-')
+                    if  len(dado) > 1:   #verifica se o dado veio no formato 'codigo-nome'
+                        dados_emitente[chave] = dado[0]  #pega o codigo
+                        if not dados_emitente[chave].strip():  #verfica se o código esta vazio
+                            dados_emitente[chave] = '0'
+                    else:  #caso o dado não venho no formato correto 
                         dados_emitente[chave] = '0'
             if chave in  ('cnpj', 'cep', 'telefone') :
                 dados_emitente[chave] = util.retirar_pontuacao(valor)
@@ -1879,15 +1899,23 @@ def renomear_arquivos_nfce(caminho):
                 continue                                       #se não for pula pro próximo
             arq_nota_fiscal = os.path.join(caminho, arq)
             try:
-                nota_fiscal = NfceParse(arquivo_nfce =arq_nota_fiscal, 
-                                        aj_valor = True, 
-                                        log_file_name = log_file)   #lê o arquivo de nota fiscal
+                try:
+                    nota_fiscal = NfceParse(arquivo_nfce =arq_nota_fiscal, 
+                                            aj_valor = True, 
+                                            log_file_name = log_file)   #lê o arquivo de nota fiscal
+                except NfceArquivoInvalido:
+                    nota_fiscal = NfceParseGovBr(arquivo_nfce =arq_nota_fiscal, 
+                                            aj_valor = True, 
+                                            log_file_name = log_file)   #lê o arquivo de nota fiscal gov.br
             except Exception as e:
                 print(f'Erro - {e}')                                #se der erro, mostra o erro
             else:                                                   #se não der erro na leitura, processa
                 acess_key = nota_fiscal.obter_chave_acesso()        #pega a chave de acesso da nota fiscal
                 invoice_data = nota_fiscal.obter_dados_nfe_codigo_acesso(acess_key) #pega os dados da nota
-                dt = dateutil.parser.parse(invoice_data['dt_emissao'], \
+                if type(invoice_data['dt_emissao']) is datetime.datetime:
+                    dt = invoice_data['dt_emissao']
+                else:
+                    dt = dateutil.parser.parse(invoice_data['dt_emissao'], \
                                            dayfirst=True)           #converte o formata iso para datetime
                 dados_emitente = nota_fiscal.obter_dados_emitente()     #pega os dados do emitente
                 #o novo arquivo será, o nome de emitente(10 primeiros caracteres),
@@ -1900,8 +1928,6 @@ def renomear_arquivos_nfce(caminho):
                             '_' + \
                             str(invoice_data['vl_total']) + \
                             '.html'
-                print(file_name)
-                print(arq)
                 shutil.move(os.path.join(caminho, arq),\
                             os.path.join(caminho,file_name))
                 nota_fiscal.log.info(f'-;Arquivo {arq} renomeado para {file_name}')
