@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter.messagebox import showwarning
+from tkinter.messagebox import showwarning, showinfo
+
 #import nfce_db
 import nfce_gui
 from fields import Field
@@ -9,6 +10,7 @@ from interfaces_graficas.db import FrameGridManipulation, \
                                    ComboBoxDB, \
                                    FrameFormData, \
                                    FrameGridSearch
+from nfce_estoque import FrameSearchStock
 from interfaces_graficas import show_modal_win, ChkButton, EntryDateTime
 from sqlalchemy import text
 from sqlalchemy.sql import select, and_
@@ -363,6 +365,7 @@ class FrameSearchProducts(FrameGridSearch):
         
         self.add_widget_tool_bar(text='Detalhar', width = 10, command=(lambda param=0:(self.row_detail(param))))
         self.add_widget_tool_bar(text='Novo', width = 10, command=(lambda param=1:(self.row_detail(param))))
+        self.add_widget_tool_bar(text='Estoque', width=10, command=self.conferir_estoque)
         
         self.columns = [cd_ean_produto, ds_produto, cd_ncm_produto, cd_ean_interno, dt_criacao]
         self.scroll.set_header(self.columns)
@@ -370,15 +373,25 @@ class FrameSearchProducts(FrameGridSearch):
     
     
     def row_detail(self, state):
-        if state: #state == 1;chama form de inclusão 
-           make_gtin_window(Frame=FormGtin, title='Gtin',keys=None, state=state) 
-        else:#state == 1;chama form de update
-            
+        if self.last_clicked_row != -1:
+            if state: #state == 1;chama form de inclusão
+               make_gtin_window(Frame=FormGtin, title='Gtin',keys=None, state=state)
+            else:#state == 1;chama form de update
+
+                product = self.get_grid_data_by_fieldname(self.last_clicked_row)
+
+                make_gtin_window(Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':product['cd_ean_produto']}, state=state)
+
+    def conferir_estoque(self):
+        if self.last_clicked_row != -1:
             product = self.get_grid_data_by_fieldname(self.last_clicked_row)
-            
-            make_gtin_window(Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':product['cd_ean_produto']}, state=state)
-
-
+            if product['cd_ean_produto'] != 'SEM GTIN':
+                nfce_gui.make_window(master=self,
+                                     Frame=FrameSearchStock,
+                                     title='Pesquisa Estoque',
+                                     auto_filter = {'Prod. Gtin': product['cd_ean_produto']})
+            else:
+                showinfo('Pesquisa Produtos','Somente para Produtos com Gtin',parent=self)
 class FrameProductGrouping(FrameGridManipulation):
 
 
@@ -1534,16 +1547,8 @@ def open_product(master, conn, product_code):
 #    f.pack(fill = tk.X)
 #    root.mainloop()
 
-def make_gtin_window(Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':'7894321218526'}, state=1):
-    root = tk.Tk()
-    root.conn = engine.connect()
-    root.title(title)
-    if Frame:
-        f = Frame(root, root.conn, keys, state)
-        f.pack(fill = tk.X)
-        root.resizable(False, False)
-        root.mainloop()
-
+def make_gtin_window(master=None,Frame=FormGtin, title='Gtin',keys={'cd_ean_produto':'7894321218526'}, state=1):
+    nfce_gui.make_window(master,Frame,title,resizable=False,keys=keys,state=state)
 
 def make_product_adjust_window( master = None,
                                 frame=FrameProductAdjust,

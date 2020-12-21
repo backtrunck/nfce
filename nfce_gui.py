@@ -1,10 +1,11 @@
 import nfce_db
-from nfce_produtos import FrameProductAdjust
-from nfce_produtos import make_product_adjust_window
+from nfce_produtos import FrameProductAdjust,make_product_adjust_window,make_gtin_window,FormGtin
+from nfce_estoque import FrameSearchStock
 
 from sqlalchemy import *
 from sqlalchemy.sql import text 
 import tkinter as tk
+from tkinter import messagebox
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from interfaces_graficas.db import FrameGridSearch, DBField, FrameFormData#, ComboBoxDB
@@ -148,6 +149,8 @@ class FormInvoice(FrameFormData):
         self.scroll.set_header(self.columns)
         
         self.add_widget_tool_bar(text='Ajustar', width = 10, command=self.adjust_product)
+        self.add_widget_tool_bar(text='Produto', width=10, command=self.detalha_produto)
+        self.add_widget_tool_bar(text='Estoque', width=10, command=self.conferir_estoque)
         
         if self.state == self.STATE_UPDATE:
             data = self.get_form_dbdata(self.data_keys) 
@@ -165,7 +168,25 @@ class FormInvoice(FrameFormData):
                                        keys={'cd_prod_serv_ajuste':nu_nfce['cd_prod_serv'], 
                                              'cnpj': nu_nfce['cnpj']}, 
                                        state=0)
-
+    def detalha_produto(self):
+        if self.last_clicked_row != -1:
+            nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            if nu_nfce['cd_ean_prod_serv'] != 'SEM GTIN':
+                make_gtin_window(master=self, Frame=FormGtin, title='Gtin', keys={'cd_ean_produto': nu_nfce['cd_ean_prod_serv']}, state=0)
+            else:
+                messagebox.showinfo('Nota Fiscal',
+                                     'Somente para Produtos com Gtin',parent=self)
+    def conferir_estoque(self):
+        if self.last_clicked_row != -1:
+            nu_nfce = self.get_grid_data_by_fieldname(self.last_clicked_row)
+            if nu_nfce['cd_ean_prod_serv'] != 'SEM GTIN':
+                make_window( master=self,
+                             Frame=FrameSearchStock,
+                             title='Pesquisa Estoque',
+                             auto_filter = {'Prod. Gtin': nu_nfce['cd_ean_prod_serv']})
+            else:
+                messagebox.showinfo('Nota Fiscal',
+                                     'Somente para Produtos com Gtin',parent=self)
 def make_class_search_invoice_window(master=None):
     make_window(master=master, Frame=FrameSearchInvoices, title='Pesquisa Nota Fiscal', resizable=False)
 
@@ -196,18 +217,19 @@ def make_window(master=None, Frame=None, title=None, resizable=True, **kwargs):
         root.conn = nfce_db.get_engine_bd().connect()
     if title:
         root.title(title)
-    if Frame:
-        if kwargs:
-            f = Frame(root, root.conn, **kwargs)
-        else:
-            f = Frame(root, root.conn)
-        f.pack(fill = tk.X)
-        if not resizable:
-            root.resizable(False, False)
-        if master:
-            show_modal_win(root)
-        else:
-            root.mainloop()
+    #if Frame:
+    if kwargs:
+        f = Frame(root, root.conn, **kwargs)
+    else:
+        f = Frame(root, root.conn)
+    f.pack(fill = tk.X)
+    if not resizable:
+        root.resizable(False, False)
+    if master:
+        show_modal_win(root)
+    else:
+        root.mainloop()
+
     return
 def make_widget(master, widget_type, index_name, field_name='', comparison_operator='=', **options):
         

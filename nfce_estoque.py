@@ -1004,7 +1004,15 @@ class FrameSearchExit(FrameGridSearch):
                                    data_copy = data_copy)
 
 class FrameSearchStock(FrameGridSearch):
-    def __init__(self, master, connection, **kwargs):
+    def __init__(self, master, connection, auto_filter={}, **kwargs):
+        '''
+
+        :param master:
+        :param connection:
+        :param auto_filter: (dictionary) Contém dados para se fazer um filtro inicial no grid de resultados da pesquisa,
+            Devem ser usadas as chaves (labels) de self.controls, ver no self.init da classe.
+        :param kwargs:
+        '''
         super().__init__(master, connection, grid_table=stock_v, **kwargs)
         
         width_label = 12
@@ -1124,6 +1132,13 @@ class FrameSearchStock(FrameGridSearch):
                              type_widget=tk.Entry)
         self.columns = [product_gtin, ds_gtin, input, output, adjustment, balance]
         self.scroll.set_header(self.columns)
+
+        if auto_filter:
+            self.controls['saldo'].widget.unset()  #Descarma o chkbutton de saldo em estoque
+            for key,value in auto_filter.items():
+                widget = self.controls[key].widget
+                self.set_widget_data(widget,value)
+                self.search()
                
     def row_detail(self):
         #nu_nfce = self.get_grid_data(self.last_clicked_row)
