@@ -895,7 +895,7 @@ class FrameProductGtin(tk.Frame):
 
 class FrameSearchExit(FrameGridSearch):
     def __init__(self, master, connection, **kwargs):
-        super().__init__(master, connection, grid_table=products_exit_v, **kwargs)
+        super().__init__(master, connection, grid_table=products_exit_v, order_by=[('dt_saida',1)],**kwargs)
         
         width_label = 12
         

@@ -9,7 +9,7 @@ from tkinter import messagebox
 from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from interfaces_graficas.db import FrameGridSearch, DBField, FrameFormData#, ComboBoxDB
-from interfaces_graficas import show_modal_win
+from interfaces_graficas import show_modal_win, EntryDate
 from nfce_models import nota_fiscal_v,\
                         produtos_servicos_v,\
                         nota_fiscal_produtos_v
@@ -393,7 +393,7 @@ class FrameGrid(tk.Frame):
 
 class FrameSearchInvoices(FrameGridSearch):
     def __init__(self, master, connection, **kwargs):
-        super().__init__(master, connection, grid_table=nota_fiscal_produtos_v, **kwargs)
+        super().__init__(master, connection, grid_table=nota_fiscal_produtos_v, order_by=[('data_emissao',1)], **kwargs)
         
         width_label = 12
         f = tk.Frame(self.form)
@@ -443,15 +443,46 @@ class FrameSearchInvoices(FrameGridSearch):
                                     width=40, 
                                     type_widget=tk.Entry)        
         self.add_widget(supplier_field, e)
-        
-        
+
+        #        f = tk.Frame(self.form)
+        #        f.pack(fill=tk.X)
+
+        l = tk.Label(f, text='Gtin:', width=width_label, anchor='e')
+        #        l.pack(side=tk.LEFT , anchor='w')
+        l.grid(row=2, column=0, stick=tk.E + tk.W)
+        e = tk.Entry(f, width=14)
+        #        e.pack(side=tk.LEFT, pady=2)
+        e.grid(row=2, column=1, columnspan=1, stick=tk.E + tk.W)
+        filter = DBField(field_name='cd_ean_prod_serv',
+                         comparison_operator=Field.OP_EQUAL,
+                         label='cd_ean_prod_serv',
+                         width=14,
+                         type_widget=None)
+        self.add_widget(filter, e)
+
+        #        f = tk.Frame(self.form)
+        #        f.pack(fill=tk.X)
+        l = tk.Label(f, text='Produto:', width=width_label, anchor='e')
+        #        l.pack(side=tk.LEFT , anchor='w')
+        l.grid(row=2, column=2, stick=tk.E + tk.W)
+        e = tk.Entry(f, width=35)
+        #        e.pack(side=tk.LEFT, pady=2)
+        e.grid(row=2, column=3, columnspan=1, stick=tk.E + tk.W)
+        filter = DBField(field_name='ds_prod_serv',
+                         comparison_operator=Field.OP_LIKE,
+                         label='ds_prod_serv',
+                         width=35,
+                         type_widget=None)
+        self.add_widget(filter, e)
+
 #        f = tk.Frame(self.form)
 #        f.pack(fill=tk.X)  
         
         l = tk.Label(f, text='Data De:', width=width_label,  anchor='e')
 #        l.pack(side=tk.LEFT , anchor='w')
         l.grid(row=3,column=0,stick=tk.E + tk.W)  
-        e = tk.Entry(f, width=10)
+        #e = tk.Entry(f, width=10)
+        e = EntryDate(f, width=10)
 #        e.pack(side=tk.LEFT, pady=2)
         e.grid(row=3,column=1,columnspan=1,stick=tk.E + tk.W)
         dt_emission_field = DBField(field_name='data_emissao',
@@ -466,7 +497,8 @@ class FrameSearchInvoices(FrameGridSearch):
         l= tk.Label(f, text='Data Até:', width=width_label,  anchor='e')
 #        l.pack(side=tk.LEFT , anchor='w')
         l.grid(row=3,column=2,stick=tk.E + tk.W)  
-        e = tk.Entry(f, width=10)
+        #e = tk.Entry(f, width=10)
+        e = EntryDate(f, width=10)
 #        e.pack(side=tk.LEFT, pady=2)
         e.grid(row=3,column=3,columnspan=1,stick=tk.E + tk.W)
         field = DBField(field_name='data_emissao',
@@ -475,38 +507,7 @@ class FrameSearchInvoices(FrameGridSearch):
                             width=10, 
                             type_widget=None)        
         self.add_widget(field, e)
-        
-#        f = tk.Frame(self.form)
-#        f.pack(fill=tk.X)        
-       
-        l = tk.Label(f, text='Gtin:', width=width_label,  anchor='e')
-#        l.pack(side=tk.LEFT , anchor='w')
-        l.grid(row=2,column=0,stick=tk.E + tk.W) 
-        e = tk.Entry(f, width=14)
-#        e.pack(side=tk.LEFT, pady=2)
-        e.grid(row=2,column=1,columnspan=1,stick=tk.E + tk.W)
-        filter = DBField(field_name='cd_ean_prod_serv',
-                             comparison_operator = Field.OP_EQUAL,
-                             label='cd_ean_prod_serv',
-                             width=14, 
-                             type_widget=None)        
-        self.add_widget(filter, e)
-        
-#        f = tk.Frame(self.form)
-#        f.pack(fill=tk.X)        
-        l = tk.Label(f, text='Produto:', width=width_label,  anchor='e')
-#        l.pack(side=tk.LEFT , anchor='w')
-        l.grid(row=2,column=2,stick=tk.E + tk.W) 
-        e = tk.Entry(f, width=35)
-#        e.pack(side=tk.LEFT, pady=2)
-        e.grid(row=2,column=3,columnspan=1,stick=tk.E + tk.W)
-        filter = DBField(field_name='ds_prod_serv',
-                             comparison_operator = Field.OP_LIKE,
-                             label='ds_prod_serv',
-                             width=35, 
-                             type_widget=None)        
-        self.add_widget(filter, e)
-        
+
         
         
         nfce_field = DBField(field_name='nu_nfce', 
