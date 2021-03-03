@@ -6,7 +6,7 @@ from tkinter import *
 from tkinter.filedialog import askopenfilename,  askdirectory
 from tkinter import messagebox
 from interfaces_graficas import show_modal_win
-from nfce import    NfceBd,\
+from .nfce import    NfceBd,\
                     NfceParse,\
                     NfceArquivoInvalido,\
                     make_logs_path, \

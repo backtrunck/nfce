@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import tkinter as tk
-import nfce_db
+from nfce import nfce_db
+import sys
+sys.path.append("..")
 
 def main():
     
@@ -23,16 +25,16 @@ def main():
     root = tk.Tk()
     root.title('Controle de Compras v0.5')
     root.geometry("900x700")
-    img = tk.PhotoImage(file='./static/icons8-carrinho-de-compras-carregado-48.png')
+    img = tk.PhotoImage(file='./nfce/static/icons8-carrinho-de-compras-carregado-48.png')
     root.tk.call('wm', 'iconphoto', root._w, img)
     root.conn = conn
 #    engine = nfce_db.get_engine_bd()
-    import nfce_gui
-    import nfce_estoque
-    import nfce_produtos
-    import import_invoice
-    import product_scraper
-    import invoice_scraper
+    from nfce import nfce_gui
+    from nfce import nfce_estoque
+    from nfce import nfce_produtos
+    from nfce import import_invoice
+    from nfce import product_scraper
+    from nfce import invoice_scraper
    
 #    root.conn = engine.connect()
     

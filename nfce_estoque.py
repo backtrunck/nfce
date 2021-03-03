@@ -5,7 +5,7 @@ from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from interfaces_graficas import show_modal_win, ChkButton, EntryDate, EntryDateTime
 from util import string_to_date, formatar_data, is_valid_date
 from interfaces_graficas.db import FrameGridSearch, DBField, ComboBoxDB, FrameFormData
-from nfce_models import engine, \
+from nfce.nfce_models import engine, \
                         products_exit_t,\
                         products_exit_v,\
                         products_gtin_t,\
@@ -15,10 +15,10 @@ from nfce_models import engine, \
                         classe_produto_t,\
                         agrupamento_produto_t, \
                         ajuste_estoque_t
-from nfce_db import PRODUCT_NO_CLASSIFIED
+from nfce.nfce_db import PRODUCT_NO_CLASSIFIED
 
 from sqlalchemy.sql import select
-from fields import Field
+from nfce.fields import Field
 #from collections import namedtuple
 
 class FormStockAdjustment(FrameFormData):

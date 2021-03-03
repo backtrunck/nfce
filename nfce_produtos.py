@@ -2,19 +2,19 @@ import tkinter as tk
 from tkinter.messagebox import showwarning, showinfo
 
 #import nfce_db
-import nfce_gui
-from fields import Field
+from nfce import nfce_gui
+from nfce.fields import Field
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from interfaces_graficas.db import FrameGridManipulation, \
                                    DBField, \
                                    ComboBoxDB, \
                                    FrameFormData, \
                                    FrameGridSearch
-from nfce_estoque import FrameSearchStock
+from nfce.nfce_estoque import FrameSearchStock
 from interfaces_graficas import show_modal_win, ChkButton, EntryDateTime
 from sqlalchemy import text
 from sqlalchemy.sql import select, and_
-from nfce_models import engine, \
+from nfce.nfce_models import engine, \
                         products_t,\
                         products_gtin_products_v, \
                         products_gtin_products_t, \
