@@ -611,7 +611,7 @@ class FrameProductGtin(tk.Frame):
         tk.Label(f, text='Qt. Embalag.:', width=11,  anchor='e').pack(side=tk.LEFT, anchor='w')
         self.qt_item_embalagem = tk.Entry(f, width=5)
         self.qt_item_embalagem.pack(side=tk.LEFT, pady=2)
-        
+
         f = tk.Frame(self)
         f.pack(fill=tk.X)        
         tk.Label(f, text='Data Criação:', width=11,  anchor='e').pack(side=tk.LEFT , anchor='w')

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+print('main.py',__name__)
 import tkinter as tk
 from nfce import nfce_db
 import sys

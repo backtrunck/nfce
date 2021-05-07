@@ -141,6 +141,7 @@ class NfceParseGovBr():
         div_emitente = self.dados_nota_fiscal.find('div', {'id':'Emitente'})
         if div_emitente:
             emitente = self.obter_dados_labels(div_emitente, LABELS_EMITENTE)
+            emitente['municipio'] = emitente['cd_municipio'].split('-')[1].strip() #alteração p/ incluir nome municipio
             emitente = ajustar_dados_emitente(emitente)
         return emitente
     
@@ -1777,7 +1778,7 @@ def nf_gov_para_csv(caminho):
          (parâmetros): caminho (string) caminho para a pasta onde se encontram os arquivos.
          
     '''
-    gerar_arquivo = False
+    gerar_cabecalho = False
     if os.path.exists(caminho):                                #a pasta existe?      
         print(f'Processando pasta {caminho} ...')
         for arq in os.listdir(caminho):                        #para cada arquivo na pasta
@@ -1793,47 +1794,47 @@ def nf_gov_para_csv(caminho):
                 emitente =  nota_fiscal.obter_dados_emitente()
                 dados_nota = nota_fiscal.obter_dados_nota()
                 dados_prod_serv = nota_fiscal.obter_dados_produtos_e_servicos()
-                if not gerar_arquivo:
-                    csv_file_name = os.path.join(caminho, 'nfs_gov.csv')
-                    print(csv_file_name)
-                    csv_file = open(csv_file_name, 'w')
-                    writer = csv.writer(csv_file, delimiter = ';',  quotechar = '"', quoting = csv.QUOTE_ALL)
-                    writer.writerow([ 'nu_nfce', 
-                                                'dt_emissao', 
-                                                'vl_total', 
-                                                'cnpj', 
-                                                'razao_social', 
-                                                'ds_prod_serv', 
-                                                'qt_prod_serv', 
-                                                'vl_prod_serv', 
-                                                'un_comercial_prod_serv', 
-                                                'vl_desconto_prod_serv', 
-                                                'cd_ean_prod_serv', 
-                                                'nu_prod_serv', 
-                                                'endereco', 
-                                                'bairro', 
-                                                'cd_municipio'])
-                    gerar_arquivo = True
-                                                
-                for prod_serv in dados_prod_serv:
-                    writer.writerow([   dados_nota['nu_nfce'], \
-                            dados_nota['dt_emissao'],  \
-                            dados_nota['vl_total'],    \
-                            emitente['cnpj'],     \
-                            emitente['razao_social'],    \
-                            prod_serv['ds_prod_serv'],   \
-                            prod_serv['qt_prod_serv'], \
-                            prod_serv['vl_prod_serv'],\
-                            prod_serv['un_comercial_prod_serv'], \
-                            prod_serv['vl_desconto_prod_serv'], \
-                            prod_serv['cd_ean_prod_serv'], \
-                           prod_serv['nu_prod_serv'], \
-                            emitente['endereco'],\
-                            emitente['bairro'], 
-                            emitente['cd_municipio']]) 
+                csv_file_name = os.path.join(caminho, 'nfs_gov.csv')
+                with open(csv_file_name, 'a') as csv_file:
+                    writer = csv.writer(csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_ALL)
+                    if not gerar_cabecalho:
+                        gerar_cabecalho = True
+                        writer.writerow([ 'numero',
+                                          'nu_nfce',
+                                          'dt_emissao',
+                                          'cnpj',
+                                          'razao_social',
+                                          'ds_prod_serv',
+                                          'qt_prod_serv',
+                                          'vl_prod_serv',
+                                          'vl_total',
+                                          'un_comercial_prod_serv',
+                                          'vl_desconto_prod_serv',
+                                          'cd_ean_prod_serv',
+                                          'nu_prod_serv',
+                                          'endereco',
+                                          'bairro',
+                                          'municipio',
+                                          'uf'])
+                    for prod_serv in dados_prod_serv:
+                        writer.writerow([dados_nota['nu_nfce'], \
+                                         dados_nota['numero'], \
+                                         dados_nota['dt_emissao'],  \
+                                         emitente['cnpj'],     \
+                                         emitente['razao_social'],    \
+                                         prod_serv['ds_prod_serv'],   \
+                                         prod_serv['qt_prod_serv'], \
+                                         prod_serv['vl_prod_serv'], \
+                                         dados_nota['vl_total'], \
+                                         prod_serv['un_comercial_prod_serv'], \
+                                         prod_serv['vl_desconto_prod_serv'], \
+                                         prod_serv['cd_ean_prod_serv'], \
+                                         prod_serv['nu_prod_serv'], \
+                                         emitente['endereco'],\
+                                         emitente['bairro'],
+                                         emitente['municipio'],
+                                         emitente['sg_uf']])
         print('Processamento Finalizado.')
-        if gerar_arquivo: #se o csv foi gerado...
-            csv_file.close()
     else:
         print(f'Pasta inexistente: {caminho}')
         
