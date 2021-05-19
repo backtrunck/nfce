@@ -174,7 +174,10 @@ class NfceParseGovBr():
     def obter_informacoes_complementares(self):
         id = self.dados_nota_fiscal.find('div', id = 'Inf')
         legend_inf_contrib = id.find('legend', text='Informações Complementares de Interesse do Contribuinte')
-        return legend_inf_contrib.parent.div.get_text().strip()
+        if legend_inf_contrib:
+            return legend_inf_contrib.parent.div.get_text().strip()
+        else:
+            return ''
     
     def obter_dados_toggable_box(self, table, dados_produto):
         
