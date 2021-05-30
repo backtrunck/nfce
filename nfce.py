@@ -545,16 +545,16 @@ class NfceParse():
         try:
             dados_nota = {}
             str_log = ''
-            
+            #29.5.2021. trocada as posições de numero e nu_nfce, pois estava se utilizando numero como nu_nfce
             #retirado da declaração da variavel formato_codigo_acesso não vão ser utilizados,  por enquanto
             formato_codigo_acesso = {                   'cd_uf':(0, 2),   
                                                         #'ano_mes':(2, 6),         
                                                         'cnpj':(6, 20), 
                                                         'cd_modelo':(20, 22), 
                                                         'serie':(22, 25), 
-                                                        'numero':(25, 34), 
+                                                        'nu_nfce':(25, 34),
                                                         'cd_forma_emissao':(34, 35), 
-                                                        'nu_nfce':(35, 43)
+                                                        'numero':(35, 43)
                                                         #'digito_verificador':(43, 44)   
                                                        } 
             codigo_acesso = re.sub(' ', '', codigo_acesso)
