@@ -1,5 +1,4 @@
-from nfce.nfce_db import get_engine_bd
-#from sqlalchemy import Column, Integer, String,  Unicode,  
+from nfce_db import get_engine_bd
 from sqlalchemy import MetaData, Table
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.orm import mapper

@@ -5,7 +5,7 @@ import base64, re
 import tkinter as tk
 import nfce
 from tkinter.messagebox import showwarning, askokcancel
-from nfce.nfce_scrapper import   get_logger,\
+from nfce_scrapper import   get_logger,\
                             initialize,\
                             wait_by_id, \
                             wait_presence_by_id
@@ -20,7 +20,7 @@ from util import    check_key_nfce,\
                     retirar_pontuacao
                     
 from bs4 import BeautifulSoup
-from nfce.nfce_models import Session                        
+from nfce_models import Session
 
 
 sefaz_ba_site = 'https://nfe.sefaz.ba.gov.br/servicos/nfce/Modulos/Geral/NFCEC_consulta_chave_acesso.aspx'

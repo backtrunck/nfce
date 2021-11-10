@@ -3,8 +3,8 @@ import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
 #from bs4.element import NavigableString, Tag
-from nfce.nfce_db import PRODUCT_NO_CLASSIFIED
-from nfce.nfce_models import Session,\
+from nfce_db import PRODUCT_NO_CLASSIFIED
+from nfce_models import Session,\
                         NotaFiscal,\
                         Emitente,\
                         NotaFiscalFormaPagamento,\

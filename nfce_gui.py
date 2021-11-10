@@ -1,6 +1,6 @@
-from nfce import nfce_db
-from nfce.nfce_produtos import FrameProductAdjust,make_product_adjust_window,make_gtin_window,FormGtin
-from nfce.nfce_estoque import FrameSearchStock
+import nfce_db
+from nfce_produtos import FrameProductAdjust,make_product_adjust_window,make_gtin_window,FormGtin
+from nfce_estoque import FrameSearchStock
 
 from sqlalchemy import *
 from sqlalchemy.sql import text 
@@ -10,12 +10,12 @@ from collections import Counter
 from interfaces_graficas.ScrolledWindow import ScrolledWindow
 from interfaces_graficas.db import FrameGridSearch, DBField, FrameFormData#, ComboBoxDB
 from interfaces_graficas import show_modal_win, EntryDate
-from nfce.nfce_models import nota_fiscal_v,\
+from nfce_models import nota_fiscal_v,\
                         produtos_servicos_v,\
                         nota_fiscal_produtos_v
 from PIL import Image
 from PIL.ImageTk import PhotoImage
-from nfce.fields import fields_search_invoice, fields_form_invoice, fields_items_invoice, Field
+from fields import fields_search_invoice, fields_form_invoice, fields_items_invoice, Field
 
 class FormInvoice(FrameFormData):
     def __init__(self, master, connection, data_keys=[], grid_keys=[], state=0):

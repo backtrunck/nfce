@@ -3,14 +3,14 @@
 #o firefox está com o seguinte header/ User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0 
 import os,  re, csv, io, logging, datetime
 import tkinter as tk
-from nfce import nfce_db
-from nfce.nfce_models import products_gtin_products_t
+import nfce_db
+from nfce_models import products_gtin_products_t
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import  TimeoutException,\
                                         NoSuchElementException
-from nfce.nfce_scrapper import   open_browser, \
+from nfce_scrapper import   open_browser, \
                             open_site, \
                             make_image_file, \
                             verifica_path, \
@@ -439,7 +439,7 @@ def get_product_from_csv(product_code):
     
     result = None    
     if os.path.exists(csv_products_file):        
-        with  open(csv_products_file, 'r') as file:            
+        with  open(csv_products_file, 'r', encoding='utf-8') as file:
             reader = csv.reader(file, delimiter=';')            
             for row in reader:          
                 if row and row[0] == product_code:                    

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-print('main.py',__name__)
 import tkinter as tk
-from nfce import nfce_db
+import nfce_db
 import sys
 sys.path.append("..")
 
@@ -26,16 +25,23 @@ def main():
     root = tk.Tk()
     root.title('Controle de Compras v0.5')
     root.geometry("900x700")
-    img = tk.PhotoImage(file='./nfce/static/icons8-carrinho-de-compras-carregado-48.png')
+    img = tk.PhotoImage(file='./static/icons8-carrinho-de-compras-carregado-48.png')
     root.tk.call('wm', 'iconphoto', root._w, img)
     root.conn = conn
 #    engine = nfce_db.get_engine_bd()
-    from nfce import nfce_gui
-    from nfce import nfce_estoque
-    from nfce import nfce_produtos
-    from nfce import import_invoice
-    from nfce import product_scraper
-    from nfce import invoice_scraper
+#     from nfce import nfce_gui
+#     from nfce import nfce_estoque
+#     from nfce import nfce_produtos
+#     from nfce import import_invoice
+#     from nfce import product_scraper
+#     from nfce import invoice_scraper
+
+    import nfce_gui
+    import nfce_estoque
+    import nfce_produtos
+    import import_invoice
+    import product_scraper
+    import invoice_scraper
    
 #    root.conn = engine.connect()
     
@@ -74,7 +80,7 @@ def main():
     top.add_cascade(label='Estoque', menu=estoque_nfce,  underline=0) 
     
    
-    root.eval('tk::PlaceWindow %s center' % root.winfo_pathname(root.winfo_id()))
+    # root.eval('tk::PlaceWindow %s center' % root.winfo_pathname(root.winfo_id()))
     root = tk.mainloop()
 
 if __name__ == '__main__':
