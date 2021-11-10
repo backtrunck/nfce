@@ -17,7 +17,7 @@ __pycache__/
 .ipynb_checkpoints/
 #*.ipynb
 .gitignore
-venv/
+venv*/
 .venv/
 .idea/
 util/
