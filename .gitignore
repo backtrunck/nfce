@@ -17,6 +17,11 @@ __pycache__/
 .ipynb_checkpoints/
 #*.ipynb
 .gitignore
-venv/
+venv*/
+.venv/
 .idea/
 util/
+<<<<<<< HEAD
+=======
+interfaces_graficas/
+>>>>>>> d3fe9cafe6b3ba3f328374e87364c321ff2c9dec

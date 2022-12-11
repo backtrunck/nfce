@@ -50,15 +50,17 @@ def get_logger( name_logger,
     logger = logging.getLogger(name_logger)
     return logger
     
-def open_browser(logger, browser_type='phanton'):    
+def open_browser(logger, browser_type='firefox'):
     '''
         Open o webDrive
         parâmetros:
         text_log:ScrolledText: Text onde as mensagens de log vão ser impressas
         
         return: o objeto webDrive aberto
-    '''    
-    caps = DesiredCapabilities.PHANTOMJS    
+    '''
+    #parece q a comunidade não dá mais suporte ao phanton, ver as consequências da mudança para FIREFOX
+    # caps = DesiredCapabilities.PHANTOMJS
+    caps = DesiredCapabilities.FIREFOX
     fake_browser = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'    
     caps["phantomjs.page.settings.userAgent"] = fake_browser
     logger.info('abrindo browser... ')    

@@ -3,9 +3,14 @@ import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
 #from bs4.element import NavigableString, Tag
+<<<<<<< HEAD
 #from nfce.nfce_db import PRODUCT_NO_CLASSIFIED
 from nfce.nfce_db import PRODUCT_NO_CLASSIFIED
 from nfce.nfce_models import Session,\
+=======
+from nfce_db import PRODUCT_NO_CLASSIFIED
+from nfce_models import Session,\
+>>>>>>> d3fe9cafe6b3ba3f328374e87364c321ff2c9dec
                         NotaFiscal,\
                         Emitente,\
                         NotaFiscalFormaPagamento,\
