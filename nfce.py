@@ -3,6 +3,7 @@ import dateutil.parser
 #import mysql.connector
 from bs4 import BeautifulSoup
 #from bs4.element import NavigableString, Tag
+#from nfce.nfce_db import PRODUCT_NO_CLASSIFIED
 from nfce.nfce_db import PRODUCT_NO_CLASSIFIED
 from nfce.nfce_models import Session,\
                         NotaFiscal,\
@@ -209,7 +210,8 @@ class NfceParseGovBr():
         dados_produto['vl_seguro_prod_serv'] = util.converte_monetario_float(dado)
         
         #table = div_prod.find('table', class_="box")
-        dado = table.find('label', text='                          Indicador de Composição do Valor Total da NF-e').parent.span.get_text().strip()  
+        #dado = table.find('label', text='                          Indicador de Composição do Valor Total da NF-e').parent.span.get_text().strip()
+        dado = table.find('label', text = re.compile('\s*Indicador de Composição do Valor Total da NF-e\s*')).parent.span.get_text().strip()
         dados_produto['ind_composicao_prod_serv'] = dado
         dado = table.find('label', text='Código EAN Comercial').parent.span.get_text().strip()  
         dados_produto['cd_ean_prod_serv'] = dado
@@ -268,7 +270,15 @@ class NfceParseGovBr():
 #            dados_produto['ds_modal_defini_bc_icm'] = ''
 #            dados_produto['vl_base_calculo_icms_normal'] = 0.0                
 #            dados_produto['vl_aliquota_icms_normal'] = 0.0
-#            dados_produto['vl_icms_normal'] = 0.0 
+#            dados_produto['vl_icms_normal'] = 0.0
+        tag = table.find('legend', text=re.compile('\s*Informações adicionais do produto\s*'))
+        if tag:
+            tag = tag.parent
+            tag = tag.find('label', text=re.compile('\s*Descrição\s*'))
+            if tag:
+                dados_produto['informacao_adicional'] = tag.parent.span.text.strip()
+            else:
+                dados_produto['informacao_adicional'] = ''
         
     def obter_dados_toggle_box(self, table, dados_produto):
         ''' Obtem os dados do produto contido na tabela "'toggle blox" '''
@@ -345,6 +355,7 @@ class NfceParseGovBr():
             return dados
         else:
             return None
+
 class NfceParse():
     #'nt.fiscal.eletronica.2.html'
     
@@ -1781,16 +1792,19 @@ def nf_gov_para_csv(caminho):
          (parâmetros): caminho (string) caminho para a pasta onde se encontram os arquivos.
          
     '''
+    processou_arquivos = False
     gerar_cabecalho = False
     if os.path.exists(caminho):                                #a pasta existe?      
         print(f'Processando pasta {caminho} ...')
         for arq in os.listdir(caminho):                        #para cada arquivo na pasta
             if os.path.splitext(arq)[-1].lower() != '.html':   #verifica se é um arquivo html
                 continue                                       #se não for pula pro próximo
+
             arq_nota_fiscal = os.path.join(caminho, arq)
             try:
                 nota_fiscal = NfceParseGovBr(arq_nota_fiscal, 
                                         verbose_log = True)   #lê o arquivo de nota fiscal
+                processou_arquivos = True
             except Exception as e:
                 print(f'Erro - {e}')                                #se der erro, mostra o erro
             else:                                                   #se não der erro na leitura, processa
@@ -1803,18 +1817,20 @@ def nf_gov_para_csv(caminho):
                     if not gerar_cabecalho:
                         gerar_cabecalho = True
                         writer.writerow([ 'numero',
-                                          'nu_nfce',
-                                          'dt_emissao',
+                                          'nfce',
+                                          'data_emissao',
                                           'cnpj',
                                           'razao_social',
-                                          'ds_prod_serv',
-                                          'qt_prod_serv',
-                                          'vl_prod_serv',
-                                          'vl_total',
-                                          'un_comercial_prod_serv',
-                                          'vl_desconto_prod_serv',
-                                          'cd_ean_prod_serv',
-                                          'nu_prod_serv',
+                                          'descricao',
+                                          'quantidade',
+                                          'valor_unitário',
+                                          'valor_total_do_item',
+                                          'valor_total_da_nota',
+                                          'unidade_comercial',
+                                          'valor_desconto',
+                                          'codigo_de_barra',
+                                          'informacao_adicional',
+                                          'numero_item',
                                           'endereco',
                                           'bairro',
                                           'municipio',
@@ -1827,17 +1843,24 @@ def nf_gov_para_csv(caminho):
                                          emitente['razao_social'],    \
                                          prod_serv['ds_prod_serv'],   \
                                          prod_serv['qt_prod_serv'], \
+                                         round((prod_serv['vl_prod_serv'] - \
+                                            prod_serv['vl_desconto_prod_serv']) / \
+                                            prod_serv['qt_prod_serv'],2),
                                          prod_serv['vl_prod_serv'], \
                                          dados_nota['vl_total'], \
                                          prod_serv['un_comercial_prod_serv'], \
                                          prod_serv['vl_desconto_prod_serv'], \
                                          prod_serv['cd_ean_prod_serv'], \
+                                         prod_serv['informacao_adicional'],\
                                          prod_serv['nu_prod_serv'], \
                                          emitente['endereco'],\
                                          emitente['bairro'],
                                          emitente['municipio'],
                                          emitente['sg_uf']])
-        print('Processamento Finalizado.')
+        if processou_arquivos:
+            print('Processamento Finalizado.')
+        else:
+            print(f'Não foram encontrados arquivos *.html na pasta {caminho}')
     else:
         print(f'Pasta inexistente: {caminho}')
         
@@ -1870,7 +1893,8 @@ def main_2(nt_fiscal):
     else:
         print('Nulo')
 
-
+def main():
+    nf_gov_para_csv('/home/lcreina/Downloads/notas.fiscais')
 def ajustar_dados_emitente(emitente):
     dados_emitente = emitente
     if dados_emitente:
@@ -1943,8 +1967,9 @@ if __name__ == '__main__':
 #    nt_fiscal = NfceParse(arquivo_nfce = arquivo, aj_texto = True, aj_data = True,  aj_valor = True  )
 #    main_2(nt_fiscal)
 #    renomear_arquivos_nfce('data/html_invoices')
-    teste_NfceParseGovBr()
-    pass
+#     teste_NfceParseGovBr()
+    main()
+
     
 
 

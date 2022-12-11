@@ -107,7 +107,7 @@ def send_invoice(output = '', \
                  log_file_name = '',\
                  csv_file = None,\
                  print_header = True,\
-                 conn=None):    
+                 conn=None):
     ''' Envia os dados da nota fiscal ou para o Banco de Dados ou para um Arquivo csv
         Parâmetros (output:string): Informa se a saída vai para o banco de dados ou para o arquivo csv
                     (invoice_file:string): Arquivo que contém os dados da nota fiscal, caso não seja passado 
